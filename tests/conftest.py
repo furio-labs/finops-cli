@@ -1,4 +1,3 @@
-from datetime import date
 from finops.models import (
     AzureResource, ResourceCost, Invoice, Finding, Severity, SubscriptionData
 )
