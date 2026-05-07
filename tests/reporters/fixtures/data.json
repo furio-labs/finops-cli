@@ -1,0 +1,64 @@
+{
+  "generated_at": "2026-05-06T10:00:00Z",
+  "date_from": "2026-05-01",
+  "date_to": "2026-05-06",
+  "subscriptions": [
+    {
+      "subscription_id": "sub1",
+      "subscription_name": "Acme Test",
+      "skipped": false,
+      "skip_reason": null,
+      "resources": [
+        {
+          "id": "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1",
+          "name": "vm1",
+          "type": "microsoft.compute/virtualmachines",
+          "resource_group": "rg-prod",
+          "subscription_id": "sub1",
+          "location": "chilecentral",
+          "tags": {},
+          "sku_name": null,
+          "sku_tier": null
+        }
+      ],
+      "costs": [
+        {
+          "resource_id": "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1",
+          "resource_group": "rg-prod",
+          "subscription_id": "sub1",
+          "resource_type": "microsoft.compute/virtualmachines",
+          "daily_costs": {
+            "2026-05-01": 5.0,
+            "2026-05-02": 5.0
+          }
+        }
+      ],
+      "invoices": [
+        {
+          "id": "inv1",
+          "name": "202605",
+          "subscription_id": "sub1",
+          "billing_period": "202605",
+          "amount_due": 1500.0,
+          "currency": "USD",
+          "status": "Due",
+          "due_date": null,
+          "pdf_url": null
+        }
+      ],
+      "findings": [
+        {
+          "subscription_id": "sub1",
+          "resource_group": "rg-prod",
+          "resource_id": "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1",
+          "resource_type": "microsoft.compute/virtualmachines",
+          "severity": 3,
+          "category": "Untagged",
+          "estimated_monthly_savings_usd": 50.0,
+          "recommendation": "Etiquete este recurso.",
+          "metadata": {}
+        }
+      ]
+    }
+  ]
+}

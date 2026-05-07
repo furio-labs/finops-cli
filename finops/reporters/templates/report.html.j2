@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinOps Report — {{ report.date_from }} to {{ report.date_to }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+  header { background: #1e3a5f; color: #fff; padding: 2rem; }
+  header h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  header p { opacity: .7; font-size: .9rem; }
+  .metrics { display: flex; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .metric { background: rgba(255,255,255,.12); border-radius: 8px; padding: 1rem 1.5rem; min-width: 140px; }
+  .metric .value { font-size: 1.6rem; font-weight: 700; display: block; }
+  .metric .label { font-size: .8rem; opacity: .75; }
+  .severity-row { display: flex; gap: .75rem; margin-top: 1rem; flex-wrap: wrap; }
+  .badge { padding: .25rem .75rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .CRITICAL { background: #fee2e2; color: #991b1b; }
+  .HIGH { background: #fef3c7; color: #92400e; }
+  .MEDIUM { background: #e0f2fe; color: #075985; }
+  .INFO { background: #f0fdf4; color: #166534; }
+  main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+  section { background: #fff; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #1e3a5f; border-bottom: 2px solid #e5e7eb; padding-bottom: .5rem; }
+  h3 { font-size: .95rem; margin: 1rem 0 .5rem; color: #374151; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { background: #f9fafb; text-align: left; padding: .5rem .75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+  td { padding: .45rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .resource-id { font-family: monospace; font-size: .78rem; color: #6b7280; word-break: break-all; }
+  .filter-bar { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+  .filter-bar input, .filter-bar select { padding: .4rem .75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: .85rem; }
+  .skipped { color: #d97706; font-style: italic; }
+  .savings { color: #059669; font-weight: 600; }
+  .no-findings { color: #9ca3af; font-size: .85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FinOps Report</h1>
+  <p>Período: {{ report.date_from }} — {{ report.date_to }} &nbsp;·&nbsp; Generado: {{ report.generated_at }}</p>
+  <div class="metrics">
+    <div class="metric">
+      <span class="value">${{ "%.2f"|format(report.total_cost) }}</span>
+      <span class="label">Gasto Total</span>
+    </div>
+    <div class="metric">
+      <span class="value savings">~${{ "%.2f"|format(report.total_estimated_savings) }}</span>
+      <span class="label">Ahorro Estimado/mes</span>
+    </div>
+    <div class="metric">
+      <span class="value">{{ report.all_findings|length }}</span>
+      <span class="label">Hallazgos</span>
+    </div>
+    <div class="metric">
+      <span class="value">{{ report.subscriptions|length }}</span>
+      <span class="label">Suscripciones</span>
+    </div>
+  </div>
+  <div class="severity-row">
+    {% for sev in ["CRITICAL","HIGH","MEDIUM","INFO"] %}
+    {% set count = report.findings_by_severity().get(sev, [])|length %}
+    <span class="badge {{ sev }}">{{ sev }}: {{ count }}</span>
+    {% endfor %}
+  </div>
+</header>
+
+<main>
+
+{% for sub in report.subscriptions %}
+{% if sub.skipped %}
+<section>
+  <h2>{{ sub.subscription_name }} ({{ sub.subscription_id }})</h2>
+  <p class="skipped">&#x26A0; Omitida — {{ sub.skip_reason }}</p>
+</section>
+{% else %}
+
+{% if sub.invoices %}
+<section>
+  <h2>Facturas — {{ sub.subscription_name }}</h2>
+  <table>
+    <thead><tr><th>Período</th><th>Monto</th><th>Moneda</th><th>Estado</th><th>Vencimiento</th><th>PDF</th></tr></thead>
+    <tbody>
+    {% for inv in sub.invoices %}
+    <tr>
+      <td>{{ inv.billing_period }}</td>
+      <td>${{ "%.2f"|format(inv.amount_due) }}</td>
+      <td>{{ inv.currency }}</td>
+      <td>{{ inv.status }}</td>
+      <td>{{ inv.due_date or "—" }}</td>
+      <td>{% if inv.pdf_url %}<a href="{{ inv.pdf_url }}" target="_blank">Descargar</a>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section>
+  <h2>Costos por Resource Group — {{ sub.subscription_name }}</h2>
+  {% set rg_costs = namespace(data={}) %}
+  {% for cost in sub.costs %}
+    {% set _ = rg_costs.data.update({cost.resource_group: rg_costs.data.get(cost.resource_group, 0) + cost.total_cost}) %}
+  {% endfor %}
+  <table>
+    <thead><tr><th>Resource Group</th><th>Costo Total</th><th>Recursos</th></tr></thead>
+    <tbody>
+    {% for rg, total in rg_costs.data.items() %}
+    {% set rg_resource_count = sub.resources|selectattr("resource_group","equalto",rg)|list|length %}
+    <tr>
+      <td>{{ rg }}</td>
+      <td>${{ "%.2f"|format(total) }}</td>
+      <td>{{ rg_resource_count }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if sub.findings %}
+<section>
+  <h2>Hallazgos — {{ sub.subscription_name }}</h2>
+  <div class="filter-bar">
+    <input type="text" id="filter-{{ sub.subscription_id }}" placeholder="Filtrar..." oninput="filterFindings('{{ sub.subscription_id }}')">
+    <select id="sev-filter-{{ sub.subscription_id }}" onchange="filterFindings('{{ sub.subscription_id }}')">
+      <option value="">Todas las severidades</option>
+      <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>INFO</option>
+    </select>
+  </div>
+  <table id="findings-{{ sub.subscription_id }}">
+    <thead><tr><th>Severidad</th><th>Categoría</th><th>Recurso</th><th>Ahorro Est./mes</th><th>Recomendación</th></tr></thead>
+    <tbody>
+    {% for f in sub.findings|sort(attribute="severity", reverse=True) %}
+    <tr>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td>{{ f.category }}</td>
+      <td class="resource-id">{{ f.resource_id }}</td>
+      <td class="savings">{% if f.estimated_monthly_savings_usd > 0 %}~${{ "%.2f"|format(f.estimated_monthly_savings_usd) }}{% else %}—{% endif %}</td>
+      <td>{{ f.recommendation }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section><p class="no-findings">Sin hallazgos para {{ sub.subscription_name }}.</p></section>
+{% endif %}
+
+<section>
+  <h2>Detalle por Recurso — {{ sub.subscription_name }}</h2>
+  {% set cost_by_rid = namespace(data={}) %}
+  {% for c in sub.costs %}{% set _ = cost_by_rid.data.update({c.resource_id: c.total_cost}) %}{% endfor %}
+  {% set findings_by_rid = namespace(data={}) %}
+  {% for f in sub.findings %}
+    {% if f.resource_id not in findings_by_rid.data %}{% set _ = findings_by_rid.data.update({f.resource_id: []}) %}{% endif %}
+    {% set _ = findings_by_rid.data[f.resource_id].append(f) %}
+  {% endfor %}
+
+  {% for rg in sub.resources|map(attribute="resource_group")|unique %}
+  <h3>{{ rg }}</h3>
+  <table>
+    <thead><tr><th>Nombre</th><th>Tipo</th><th>SKU</th><th>Costo Total</th><th>Hallazgos</th></tr></thead>
+    <tbody>
+    {% for r in sub.resources|selectattr("resource_group","equalto",rg)|list %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td>{{ r.type }}</td>
+      <td>{{ r.sku_name or "—" }}</td>
+      <td>${{ "%.2f"|format(cost_by_rid.data.get(r.id, 0)) }}</td>
+      <td>
+        {% for f in findings_by_rid.data.get(r.id, []) %}
+        <span class="badge {{ f.severity }}">{{ f.category }}</span>
+        {% else %}—
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</section>
+
+{% endif %}
+{% endfor %}
+
+</main>
+
+<script>
+function filterFindings(subId) {
+  const text = document.getElementById('filter-' + subId).value.toLowerCase();
+  const sev = document.getElementById('sev-filter-' + subId).value;
+  const rows = document.querySelectorAll('#findings-' + subId + ' tbody tr');
+  rows.forEach(row => {
+    const rowText = row.textContent.toLowerCase();
+    const badge = row.querySelector('.badge');
+    const rowSev = badge ? badge.textContent.trim() : '';
+    const matchText = !text || rowText.includes(text);
+    const matchSev = !sev || rowSev === sev;
+    row.style.display = (matchText && matchSev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>
