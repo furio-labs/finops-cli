@@ -31,3 +31,9 @@ finops = "finops.cli:cli"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["finops*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+finops = ["reporters/templates/*.j2"]

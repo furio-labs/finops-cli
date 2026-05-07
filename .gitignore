@@ -5,3 +5,10 @@ dist/
 .env
 reports/
 .venv/
+.claude/
+build/
+.pytest_cache/
+.coverage
+*.log
+.mypy_cache/
+subscriptions.yaml

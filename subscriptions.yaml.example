@@ -1,9 +1,9 @@
 subscriptions:
-  - id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-    name: "Acme Production"
+  - id: "00000000-0000-0000-0000-000000000000"
+    name: "Example Production Client"
     tags:
       environment: production
-      client: acme-internal
+      client: example-client
 
 required_tags:
   - environment
