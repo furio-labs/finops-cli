@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finops"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.19.0",
+    "azure-mgmt-costmanagement>=4.0.1",
+    "azure-mgmt-resource>=23.2.0",
+    "azure-mgmt-billing>=6.0.0",
+    "click>=8.1.8",
+    "jinja2>=3.1.5",
+    "pydantic>=2.10.0",
+    "rich>=13.9.0",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+finops = "finops.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["finops*"]

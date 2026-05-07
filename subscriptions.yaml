@@ -1,0 +1,15 @@
+subscriptions:
+  - id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    name: "Acme Production"
+    tags:
+      environment: production
+      client: acme-internal
+
+required_tags:
+  - environment
+  - client
+  - service
+
+cost_thresholds:
+  idle_resource_daily_usd: 0.10
+  scheduling_hours_per_day: 8
