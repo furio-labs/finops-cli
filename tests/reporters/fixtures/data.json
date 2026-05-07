@@ -16,9 +16,9 @@
           "resource_group": "rg-prod",
           "subscription_id": "sub1",
           "location": "chilecentral",
-          "tags": {},
-          "sku_name": null,
-          "sku_tier": null
+          "tags": {"environment": "production", "client": "acme"},
+          "sku_name": "Standard_D4s_v5",
+          "sku_tier": "Standard"
         }
       ],
       "costs": [
@@ -27,10 +27,7 @@
           "resource_group": "rg-prod",
           "subscription_id": "sub1",
           "resource_type": "microsoft.compute/virtualmachines",
-          "daily_costs": {
-            "2026-05-01": 5.0,
-            "2026-05-02": 5.0
-          }
+          "daily_costs": {"2026-05-01": 5.0, "2026-05-02": 5.0}
         }
       ],
       "invoices": [
@@ -52,11 +49,11 @@
           "resource_group": "rg-prod",
           "resource_id": "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1",
           "resource_type": "microsoft.compute/virtualmachines",
-          "severity": 3,
+          "severity": "HIGH",
           "category": "Untagged",
-          "estimated_monthly_savings_usd": 50.0,
-          "recommendation": "Etiquete este recurso.",
-          "metadata": {}
+          "estimated_monthly_savings_usd": 0.0,
+          "recommendation": "Recurso sin etiquetas requeridas: service.",
+          "metadata": {"missing_tags": ["service"]}
         }
       ]
     }
