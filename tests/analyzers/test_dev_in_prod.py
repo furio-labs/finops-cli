@@ -61,3 +61,5 @@ def test_flags_postgresql_burstable_in_prod():
     )
     findings = analyzer.analyze("sub1", [resource], [])
     assert len(findings) == 1
+    assert findings[0].severity == Severity.HIGH
+    assert findings[0].category == "DevInProd"
