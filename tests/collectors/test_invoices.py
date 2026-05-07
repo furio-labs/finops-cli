@@ -41,12 +41,13 @@ def test_invoice_collector_maps_fields(mocker):
     assert inv.pdf_url == "https://portal.azure.com/invoice.pdf"
 
 
-def test_invoice_collector_returns_empty_on_error(mocker):
+@pytest.mark.parametrize("status_code", [404, 403, 500])
+def test_invoice_collector_returns_empty_on_error(mocker, status_code):
     mock_client = MagicMock()
     mocker.patch("finops.collectors.invoices.BillingManagementClient", return_value=mock_client)
     from azure.core.exceptions import HttpResponseError
     err = HttpResponseError(message="Not supported")
-    err.status_code = 404
+    err.status_code = status_code
     mock_client.invoices.list_by_billing_subscription.side_effect = err
     collector = InvoiceCollector(credential=MagicMock())
     results = collector.collect("sub1")

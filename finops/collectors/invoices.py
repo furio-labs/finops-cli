@@ -9,8 +9,8 @@ class InvoiceCollector:
         self._credential = credential
 
     def collect(self, subscription_id: str) -> list[Invoice]:
-        client = BillingManagementClient(credential=self._credential, subscription_id=subscription_id)
         try:
+            client = BillingManagementClient(credential=self._credential, subscription_id=subscription_id)
             raw = list(client.invoices.list_by_billing_subscription(subscription_id=subscription_id))
         except HttpResponseError:
             return []
