@@ -18,7 +18,7 @@ def _make_sdk_resource(
     r.name = name
     r.type = rtype
     r.location = location
-    r.tags = tags or {}
+    r.tags = tags
     if sku_name or sku_tier:
         sku = MagicMock()
         sku.name = sku_name
