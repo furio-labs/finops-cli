@@ -2,13 +2,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import yaml
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class SubscriptionEntry(BaseModel):
     id: str
     name: str
-    tags: dict[str, str] = {}
+    tags: dict[str, str] = Field(default_factory=dict)
 
 
 class CostThresholds(BaseModel):
@@ -18,8 +18,8 @@ class CostThresholds(BaseModel):
 
 class FinOpsConfig(BaseModel):
     subscriptions: list[SubscriptionEntry]
-    required_tags: list[str] = ["environment", "client", "service"]
-    cost_thresholds: CostThresholds = CostThresholds()
+    required_tags: list[str] = Field(default_factory=lambda: ["environment", "client", "service"])
+    cost_thresholds: CostThresholds = Field(default_factory=CostThresholds)
 
     @field_validator("subscriptions", mode="before")
     @classmethod
@@ -30,6 +30,8 @@ class FinOpsConfig(BaseModel):
 
     def with_subscription_override(self, ids: list[str]) -> "FinOpsConfig":
         filtered = [s for s in self.subscriptions if s.id in ids]
+        if not filtered:
+            raise ValueError(f"No subscriptions matched the provided IDs: {ids}")
         return self.model_copy(update={"subscriptions": filtered})
 
 
