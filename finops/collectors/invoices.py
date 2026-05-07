@@ -15,7 +15,7 @@ class InvoiceCollector:
         try:
             client = BillingManagementClient(credential=self._credential, subscription_id=subscription_id)
             raw = retry_on_throttle(
-                lambda: list(client.invoices.list_by_billing_subscription(subscription_id=subscription_id))
+                lambda: list(client.invoices.list_by_billing_subscription())
             )
         except HttpResponseError as exc:
             if getattr(exc, "status_code", None) in _NON_RETRIABLE_STATUSES:
