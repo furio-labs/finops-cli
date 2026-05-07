@@ -46,7 +46,7 @@ def test_load_config_missing_file_raises():
         load_config("/nonexistent/subscriptions.yaml")
 
 
-def test_override_subscriptions():
+def test_override_subscriptions_known_id():
     config = FinOpsConfig(subscriptions=[
         {"id": "sub-001", "name": "A"},
         {"id": "sub-002", "name": "B"},
@@ -54,3 +54,12 @@ def test_override_subscriptions():
     overridden = config.with_subscription_override(["sub-001"])
     assert len(overridden.subscriptions) == 1
     assert overridden.subscriptions[0].id == "sub-001"
+    assert overridden.subscriptions[0].name == "A"
+
+
+def test_override_subscriptions_unknown_id_creates_minimal_entry():
+    config = FinOpsConfig(subscriptions=[{"id": "sub-001", "name": "A"}])
+    overridden = config.with_subscription_override(["7c5d79ec-458a-4a17-86f8-d2c7fa31cf8e"])
+    assert len(overridden.subscriptions) == 1
+    assert overridden.subscriptions[0].id == "7c5d79ec-458a-4a17-86f8-d2c7fa31cf8e"
+    assert overridden.subscriptions[0].name == "7c5d79ec-458a-4a17-86f8-d2c7fa31cf8e"

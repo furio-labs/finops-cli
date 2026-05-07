@@ -29,10 +29,9 @@ class FinOpsConfig(BaseModel):
         return v
 
     def with_subscription_override(self, ids: list[str]) -> "FinOpsConfig":
-        filtered = [s for s in self.subscriptions if s.id in ids]
-        if not filtered:
-            raise ValueError(f"No subscriptions matched the provided IDs: {ids}")
-        return self.model_copy(update={"subscriptions": filtered})
+        known = {s.id: s for s in self.subscriptions}
+        result = [known.get(id_, SubscriptionEntry(id=id_, name=id_)) for id_ in ids]
+        return self.model_copy(update={"subscriptions": result})
 
 
 def load_config(path: str) -> FinOpsConfig:
