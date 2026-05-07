@@ -149,7 +149,6 @@ def report(from_cache: str, output: str | None) -> None:
     loaded_report = report_from_json(data_file.read_text())
     out_dir = Path(output) if output else cache_path
     _write_reports(loaded_report, out_dir)
-    console.print(f"[green]Reports written to: {out_dir}[/green]")
 
 
 @cli.command("list-subscriptions")
