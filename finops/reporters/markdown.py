@@ -1,1 +1,66 @@
-pass
+from __future__ import annotations
+from finops.reporters.models import Report
+from finops.models import Severity
+
+
+class MarkdownReporter:
+    def render(self, report: Report) -> str:
+        lines: list[str] = []
+
+        lines.append("# FinOps Report")
+        lines.append("")
+        lines.append(f"**Período:** {report.date_from} — {report.date_to}  ")
+        lines.append(f"**Generado:** {report.generated_at}")
+        lines.append("")
+
+        lines.append("## Resumen Ejecutivo")
+        lines.append("")
+        lines.append("| Métrica | Valor |")
+        lines.append("|---|---|")
+        lines.append(f"| Gasto Total | ${report.total_cost:.2f} |")
+        lines.append(f"| Ahorro Estimado/mes | ~${report.total_estimated_savings:.2f} |")
+        lines.append(f"| Total Hallazgos | {len(report.all_findings)} |")
+        lines.append("")
+
+        by_sev = report.findings_by_severity()
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "INFO"):
+            count = len(by_sev.get(sev, []))
+            lines.append(f"- **{sev}:** {count}")
+        lines.append("")
+
+        for sub in report.subscriptions:
+            lines.append("---")
+            lines.append("")
+            lines.append(f"## Suscripción: {sub.subscription_name} (`{sub.subscription_id}`)")
+            lines.append("")
+
+            if sub.skipped:
+                lines.append(f"> ⚠ Omitida — {sub.skip_reason}")
+                lines.append("")
+                continue
+
+            if sub.invoices:
+                lines.append("### Facturas")
+                lines.append("")
+                lines.append("| Período | Monto | Moneda | Estado |")
+                lines.append("|---|---|---|---|")
+                for inv in sub.invoices:
+                    lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} |")
+                lines.append("")
+
+            lines.append(f"### Costo Total: ${sub.total_cost:.2f}")
+            lines.append("")
+
+            if sub.findings:
+                lines.append("### Hallazgos")
+                lines.append("")
+                lines.append("| Severidad | Categoría | Recurso | Ahorro Est./mes | Recomendación |")
+                lines.append("|---|---|---|---|---|")
+                for f in sorted(sub.findings, key=lambda x: x.severity, reverse=True):
+                    savings = f"~${f.estimated_monthly_savings_usd:.2f}" if f.estimated_monthly_savings_usd > 0 else "—"
+                    rid_short = f.resource_id.split("/")[-1] if f.resource_id else f.resource_id
+                    rec = f.recommendation.replace("|", "\\|")
+                    lines.append(f"| {f.severity} | {f.category} | `{rid_short}` | {savings} | {rec} |")
+                lines.append("")
+
+        return "\n".join(lines)
