@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import click
@@ -65,8 +65,13 @@ def run(
         cfg = cfg.with_subscription_override(list(subscriptions))
 
     today = date.today()
-    start = date.fromisoformat(date_from) if date_from else today.replace(day=1)
-    end = date.fromisoformat(date_to) if date_to else today
+    try:
+        start = date.fromisoformat(date_from) if date_from else today.replace(day=1)
+        end = date.fromisoformat(date_to) if date_to else today
+    except ValueError as exc:
+        raise click.BadParameter(f"Invalid date format: {exc}. Use YYYY-MM-DD.")
+    if start > end:
+        raise click.UsageError(f"--from ({start}) must be before --to ({end})")
 
     try:
         credential, method = get_credential()
@@ -76,6 +81,13 @@ def run(
         console.print("[yellow]Set AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or run 'az login'[/yellow]")
         sys.exit(1)
 
+    if analyzers:
+        unknown = set(analyzers) - set(_ALL_ANALYZERS)
+        if unknown:
+            raise click.BadParameter(
+                f"Unknown analyzers: {unknown}. Valid: {sorted(_ALL_ANALYZERS)}",
+                param_hint="--analyzers",
+            )
     active_analyzers = [
         cls(cfg) for name, cls in _ALL_ANALYZERS.items()
         if not analyzers or name in analyzers
@@ -121,11 +133,17 @@ def run(
                     ))
                 else:
                     console.print(f"[red]✗ {sub_entry.name} — error: {exc}[/red]")
+                    results.append(SubscriptionData(
+                        subscription_id=sub_entry.id,
+                        subscription_name=sub_entry.name,
+                        resources=[], costs=[], invoices=[],
+                        skipped=True, skip_reason=f"API error: {exc.status_code}",
+                    ))
             finally:
                 progress.remove_task(task)
 
     report = Report(
-        generated_at=datetime.utcnow().isoformat() + "Z",
+        generated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         date_from=start.isoformat(),
         date_to=end.isoformat(),
         subscriptions=results,

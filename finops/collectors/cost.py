@@ -43,6 +43,14 @@ class CostCollector:
         result = retry_on_throttle(lambda: client.query.usage(scope=scope, parameters=query))
 
         col_index = {col.name: i for i, col in enumerate(result.columns)}
+        required = {"Cost", "UsageDate", "ResourceId", "ResourceGroupName", "ResourceType"}
+        missing = required - col_index.keys()
+        if missing:
+            actual = list(col_index.keys())
+            raise RuntimeError(
+                f"Azure Cost Management returned unexpected columns. "
+                f"Missing: {missing}. Got: {actual}"
+            )
         cost_idx = col_index["Cost"]
         date_idx = col_index["UsageDate"]
         rid_idx = col_index["ResourceId"]

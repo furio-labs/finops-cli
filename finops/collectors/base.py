@@ -7,6 +7,8 @@ T = TypeVar("T")
 
 
 def retry_on_throttle(fn: Callable[[], T], max_retries: int = 3) -> T:
+    if max_retries < 1:
+        raise ValueError("max_retries must be >= 1")
     for attempt in range(max_retries):
         try:
             return fn()

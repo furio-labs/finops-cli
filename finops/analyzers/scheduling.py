@@ -54,7 +54,7 @@ class SchedulingAnalyzer(Analyzer):
                 resource_type=resource.type,
                 severity=Severity.MEDIUM,
                 category="Scheduling",
-                estimated_monthly_savings_usd=round(cost.avg_daily_cost * 16, 2),
+                estimated_monthly_savings_usd=round(cost.avg_daily_cost * (24 - self.config.cost_thresholds.scheduling_hours_per_day), 2),
                 recommendation=(
                     f"Recurso en entorno '{env}' está activo los 7 días de la semana. "
                     "Configure un horario de apagado fuera de horas de trabajo para reducir costos."
