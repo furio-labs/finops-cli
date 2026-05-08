@@ -30,6 +30,14 @@ def _parse_date(usage_date_int: int) -> str:
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
 
 
+def _parse_date_value(val) -> str:
+    """Handle both integer YYYYMMDD (daily) and ISO string (monthly) date values."""
+    if isinstance(val, (int, float)):
+        return _parse_date(int(val))
+    # ISO string like "2026-01-01T00:00:00" or "2026-01-01"
+    return str(val)[:10]
+
+
 def _get_token(credential) -> str:
     return credential.get_token("https://management.azure.com/.default").token
 
@@ -83,7 +91,13 @@ class CostCollector:
     def __init__(self, credential) -> None:
         self._credential = credential
 
-    def collect(self, subscription_id: str, start_date: date, end_date: date) -> list[ResourceCost]:
+    def collect(
+        self,
+        subscription_id: str,
+        start_date: date,
+        end_date: date,
+        granularity: str = "Daily",
+    ) -> list[ResourceCost]:
         token = _get_token(self._credential)
         url = (
             f"{_BASE_URL}/subscriptions/{subscription_id}"
@@ -92,7 +106,7 @@ class CostCollector:
         costs: dict[str, ResourceCost] = {}
 
         for chunk_start, chunk_end in _date_chunks(start_date, end_date):
-            self._collect_chunk(url, subscription_id, chunk_start, chunk_end, token, costs)
+            self._collect_chunk(url, subscription_id, chunk_start, chunk_end, token, costs, granularity)
 
         return list(costs.values())
 
@@ -104,13 +118,17 @@ class CostCollector:
         end_date: date,
         token: str,
         costs: dict[str, ResourceCost],
+        granularity: str = "Daily",
     ) -> None:
+        # Monthly granularity uses "BillingMonth" column; Daily uses "UsageDate"
+        date_col = "BillingMonth" if granularity == "Monthly" else "UsageDate"
+
         body = {
             "type": "ActualCost",
             "timeframe": "Custom",
             "timePeriod": {"from": start_date.isoformat(), "to": end_date.isoformat()},
             "dataset": {
-                "granularity": "Daily",
+                "granularity": granularity,
                 "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
                 "grouping": [
                     {"type": "Dimension", "name": "ResourceId"},
@@ -125,7 +143,12 @@ class CostCollector:
         props = data["properties"]
 
         col_index = {c["name"]: i for i, c in enumerate(props["columns"])}
-        required = {"Cost", "UsageDate", "ResourceId", "ResourceGroupName", "ResourceType"}
+
+        # Date column name varies by granularity; accept whichever the API returned
+        actual_date_col = date_col if date_col in col_index else (
+            "BillingMonth" if "BillingMonth" in col_index else "UsageDate"
+        )
+        required = {"Cost", actual_date_col, "ResourceId", "ResourceGroupName", "ResourceType"}
         missing = required - col_index.keys()
         if missing:
             raise RuntimeError(
@@ -134,14 +157,14 @@ class CostCollector:
             )
 
         def _ingest(rows: list) -> None:
-            ci, di, ri, rgi, rti = (
-                col_index["Cost"], col_index["UsageDate"],
-                col_index["ResourceId"], col_index["ResourceGroupName"],
-                col_index["ResourceType"],
-            )
+            ci = col_index["Cost"]
+            di = col_index[actual_date_col]
+            ri = col_index["ResourceId"]
+            rgi = col_index["ResourceGroupName"]
+            rti = col_index["ResourceType"]
             for row in rows:
                 rid = row[ri]
-                day = _parse_date(int(row[di]))
+                day = _parse_date_value(row[di])
                 cost = float(row[ci])
                 if rid not in costs:
                     costs[rid] = ResourceCost(

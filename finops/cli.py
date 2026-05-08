@@ -49,6 +49,10 @@ def cli() -> None:
 @click.option("--analyzers", "-a", multiple=True, help="Limit analyzers (untagged,idle,wrong_sku,dev_in_prod,scheduling)")
 @click.option("--from", "date_from", default=None, help="Start date YYYY-MM-DD (default: first day of current month)")
 @click.option("--to", "date_to", default=None, help="End date YYYY-MM-DD (default: today)")
+@click.option("--granularity", "-g", default="daily",
+              type=click.Choice(["daily", "monthly"], case_sensitive=False),
+              show_default=True,
+              help="Cost data granularity. 'monthly' is ~10x faster for long date ranges.")
 @click.option("--output", "-o", default="./reports", show_default=True, help="Output directory")
 @click.option("--config", "-c", default="subscriptions.yaml", show_default=True, help="Config file")
 def run(
@@ -56,6 +60,7 @@ def run(
     analyzers: tuple[str, ...],
     date_from: str | None,
     date_to: str | None,
+    granularity: str,
     output: str,
     config: str,
 ) -> None:
@@ -75,7 +80,7 @@ def run(
 
     try:
         credential, method = get_credential()
-        console.print(f"[dim]Auth: {method.value}[/dim]")
+        console.print(f"[dim]Auth: {method.value} · Granularidad: {granularity}[/dim]")
     except Exception as exc:
         console.print(f"[red]Auth failed: {exc}[/red]")
         console.print("[yellow]Set AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or run 'az login'[/yellow]")
@@ -104,7 +109,7 @@ def run(
             task = progress.add_task(f"[cyan]{sub_entry.name}[/cyan]...", total=None)
             try:
                 resources = res_col.collect(sub_entry.id)
-                costs = cost_col.collect(sub_entry.id, start, end)
+                costs = cost_col.collect(sub_entry.id, start, end, granularity.capitalize())
                 invoices = inv_col.collect(sub_entry.id)
                 findings = []
                 for analyzer in active_analyzers:
