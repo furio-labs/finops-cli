@@ -22,11 +22,12 @@ class ResourceCollector:
         raw = retry_on_throttle(lambda: list(client.resources.list()))
         results = []
         for r in raw:
+            rid = (r.id or "").lower()
             results.append(AzureResource(
-                id=r.id,
+                id=rid,
                 name=r.name,
                 type=(r.type or "").lower(),
-                resource_group=_extract_resource_group(r.id or ""),
+                resource_group=_extract_resource_group(rid),
                 subscription_id=subscription_id,
                 location=r.location or "",
                 tags=dict(r.tags) if r.tags else {},
