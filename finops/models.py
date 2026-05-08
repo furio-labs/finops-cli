@@ -75,6 +75,15 @@ class Finding:
 
 
 @dataclass
+class AiInsight:
+    title: str
+    category: str          # "ResourceAnalysis" | "CostAnomaly" | "Recommendation" | "MoneyLeak"
+    detail: str            # Full explanation in Spanish
+    estimated_monthly_savings_usd: float
+    confidence: str        # "high" | "medium" | "low"
+
+
+@dataclass
 class SubscriptionData:
     subscription_id: str
     subscription_name: str
@@ -82,6 +91,7 @@ class SubscriptionData:
     costs: list[ResourceCost]
     invoices: list[Invoice]
     findings: list[Finding] = field(default_factory=list)
+    ai_insights: list[AiInsight] = field(default_factory=list)
     skipped: bool = False
     skip_reason: Optional[str] = None
 

@@ -20,7 +20,7 @@ def wb():
 def test_sheet_names_and_order(wb):
     assert wb.sheetnames == [
         "Summary", "Findings", "Resource Evolution",
-        "Costs by Resource Group", "Marketplace", "Invoices",
+        "Costs by Resource Group", "Marketplace", "Invoices", "AI Insights",
     ]
 
 
@@ -205,3 +205,25 @@ def test_usd_columns_have_number_format(wb):
     ws = wb["Summary"]
     # "Total Cost (USD)" is column B
     assert ws["B2"].number_format == "#,##0.00"
+
+
+# --- AI Insights ---
+
+def test_ai_insights_headers(wb):
+    ws = wb["AI Insights"]
+    headers = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
+    assert headers == ["Subscription", "Category", "Title", "Detail", "Est. Savings/mo (USD)", "Confidence"]
+
+
+def test_ai_insights_one_row_per_insight(wb):
+    ws = wb["AI Insights"]
+    assert ws.max_row == 2  # header + 1 insight from fixture
+
+
+def test_ai_insights_values(wb):
+    ws = wb["AI Insights"]
+    assert ws["A2"].value == "Test Subscription"
+    assert ws["B2"].value == "Recommendation"
+    assert ws["C2"].value == "VMs sobredimensionadas"
+    assert ws["E2"].value == pytest.approx(120.0)
+    assert ws["F2"].value == "high"

@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field, asdict
 from typing import Any
-from finops.models import SubscriptionData, Finding, Severity, AzureResource, ResourceCost, Invoice
+from finops.models import SubscriptionData, Finding, Severity, AzureResource, ResourceCost, Invoice, AiInsight
 
 
 @dataclass
@@ -69,6 +69,7 @@ def _from_dict(data: dict) -> Report:
             )
             for f in s["findings"]
         ]
+        ai_insights = [AiInsight(**i) for i in s.get("ai_insights", [])]
         subs.append(SubscriptionData(
             subscription_id=s["subscription_id"],
             subscription_name=s["subscription_name"],
@@ -76,6 +77,7 @@ def _from_dict(data: dict) -> Report:
             costs=costs,
             invoices=invoices,
             findings=findings,
+            ai_insights=ai_insights,
             skipped=s.get("skipped", False),
             skip_reason=s.get("skip_reason"),
         ))

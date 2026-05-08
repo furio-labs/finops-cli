@@ -37,3 +37,31 @@ def test_cli_help():
     assert "run" in result.output
     assert "report" in result.output
     assert "list-subscriptions" in result.output
+
+
+def test_run_help_shows_with_ai_flag():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--help"])
+    assert result.exit_code == 0
+    assert "--with-ai" in result.output
+
+
+def test_with_ai_warns_when_no_api_key(tmp_path, monkeypatch):
+    import yaml
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    config_file = tmp_path / "subscriptions.yaml"
+    config_file.write_text(yaml.dump({"subscriptions": [{"id": "sub-abc", "name": "My Sub"}]}))
+    runner = CliRunner()
+    with patch("finops.cli.get_credential") as mock_cred, \
+         patch("finops.cli.ResourceCollector") as mock_res, \
+         patch("finops.cli.CostCollector") as mock_cost, \
+         patch("finops.cli.InvoiceCollector") as mock_inv:
+        mock_cred.return_value = (MagicMock(), MagicMock(value="AzureCLI"))
+        mock_res.return_value.collect.return_value = []
+        mock_cost.return_value.collect.return_value = []
+        mock_inv.return_value.collect.return_value = []
+        result = runner.invoke(cli, [
+            "run", "--with-ai", "--config", str(config_file), "--output", str(tmp_path),
+        ])
+    assert result.exit_code == 0
+    assert "ANTHROPIC_API_KEY" in result.output

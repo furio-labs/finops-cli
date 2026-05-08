@@ -54,6 +54,15 @@
           "pdf_url": null
         }
       ],
+      "ai_insights": [
+        {
+          "title": "VMs sobredimensionadas",
+          "category": "Recommendation",
+          "detail": "Considere reducir el tamaño de las VMs Standard_D4s_v5 a Standard_D2s_v5.",
+          "estimated_monthly_savings_usd": 120.0,
+          "confidence": "high"
+        }
+      ],
       "findings": [
         {
           "subscription_id": "sub1",

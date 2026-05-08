@@ -117,7 +117,7 @@
 
 <header>
   <h1>FinOps Report</h1>
-  <p>Período: {{ report.date_from }} — {{ report.date_to }} &nbsp;·&nbsp; Generado: {{ report.generated_at }}</p>
+  <p>Período: {{ report.date_from }} — {{ report.date_to }} &nbsp;·&nbsp; Generado: {{ report.generated_at }} &nbsp;·&nbsp; Desarrollado por <a href="https://furiolabs.com" style="color:rgba(255,255,255,.8);text-decoration:none;" target="_blank">Furio Labs</a></p>
   <div class="metrics">
     <div class="metric">
       <span class="value">${{ "%.2f"|format(report.total_cost) }}</span>

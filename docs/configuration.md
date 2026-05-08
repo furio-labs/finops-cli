@@ -14,16 +14,16 @@ cp subscriptions.yaml.example subscriptions.yaml
 # One entry per Azure subscription to analyze
 subscriptions:
   - id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   # Azure Subscription ID (required)
-    name: "Acme Production"                         # Human-readable label (required)
+    name: "Acme Corp Production"                     # Human-readable label (required)
     tags:                                          # Optional metadata for this subscription
       environment: production
-      client: acme-internal
+      client: acme-corp
 
   - id: "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
-    name: "Cliente Minera XYZ"
+    name: "Contoso Staging"
     tags:
-      environment: production
-      client: minera-xyz
+      environment: staging
+      client: contoso
 
 # Tags every resource should have. Resources missing any of these are flagged by UntaggedAnalyzer.
 required_tags:

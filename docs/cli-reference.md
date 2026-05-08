@@ -49,8 +49,8 @@ reports/
 Terminal summary after each run:
 
 ```
-✓ Acme Production  — 142 recursos, $8,432.10, 7 hallazgos
-✓ Minera XYZ      —  89 recursos, $3,211.44, 3 hallazgos
+✓ Acme Corp Production —  142 recursos, $8,432.10, 7 hallazgos
+✓ Contoso Staging      —   89 recursos, $3,211.44, 3 hallazgos
 
 ──────────────────────────────────
   CRITICAL   2   ~$1,200.00/mes
@@ -110,7 +110,7 @@ Output:
 ┌────────────────────────────────────┬──────────────────┬──────────────────────────────────────┐
 │ ID                                 │ Name             │ Tags                                 │
 ├────────────────────────────────────┼──────────────────┼──────────────────────────────────────┤
-│ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx │ Acme Production   │ environment=production, client=acme   │
-│ yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyy │ Minera XYZ       │ environment=production, client=minera│
+│ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx │ Acme Corp Prod   │ environment=production, client=acme  │
+│ yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyy │ Contoso Staging  │ environment=staging, client=contoso  │
 └────────────────────────────────────┴──────────────────┴──────────────────────────────────────┘
 ```

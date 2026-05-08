@@ -63,7 +63,7 @@ Machine-readable cache of the full run. Schema:
   "subscriptions": [
     {
       "subscription_id": "xxxxxxxx-...",
-      "subscription_name": "Acme Production",
+      "subscription_name": "Acme Corp Production",
       "skipped": false,
       "skip_reason": null,
       "resources": [ { "id": "...", "name": "...", "type": "...", ... } ],

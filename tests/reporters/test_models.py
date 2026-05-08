@@ -8,7 +8,7 @@ def _make_report():
     finding = make_finding()
     sub = SubscriptionData(
         subscription_id="sub1",
-        subscription_name="Acme Test",
+        subscription_name="Test Subscription",
         resources=[make_resource()],
         costs=[make_cost()],
         invoices=[Invoice(

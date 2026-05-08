@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import sys
 import json
 from datetime import date, datetime, timezone
@@ -22,6 +23,7 @@ from finops.analyzers.dev_in_prod import DevInProdAnalyzer
 from finops.analyzers.scheduling import SchedulingAnalyzer
 from finops.models import SubscriptionData, Severity
 from finops.reporters.models import Report, report_to_json, report_from_json
+from finops.ai.analyzer import AiAnalyzer
 from finops.reporters.excel import ExcelReporter
 from finops.reporters.html import HtmlReporter
 from finops.reporters.markdown import MarkdownReporter
@@ -42,7 +44,7 @@ _ALL_ANALYZERS = {
 
 @click.group()
 def cli() -> None:
-    """FinOps CLI — Azure cost analysis and optimization for Furio Labs."""
+    """FinOps CLI — Azure cost analysis and optimization. Built by Furio Labs (furiolabs.com)."""
 
 
 @cli.command()
@@ -56,6 +58,8 @@ def cli() -> None:
               help="Cost data granularity. 'monthly' is ~10x faster for long date ranges.")
 @click.option("--output", "-o", default="./reports", show_default=True, help="Output directory")
 @click.option("--config", "-c", default="subscriptions.yaml", show_default=True, help="Config file")
+@click.option("--with-ai", "with_ai", is_flag=True, default=False,
+              help="AI-powered cost analysis via Claude (requires ANTHROPIC_API_KEY)")
 def run(
     subscriptions: tuple[str, ...],
     analyzers: tuple[str, ...],
@@ -64,6 +68,7 @@ def run(
     granularity: str,
     output: str,
     config: str,
+    with_ai: bool,
 ) -> None:
     """Analyze Azure subscriptions and generate cost reports."""
     cfg = load_config(config)
@@ -147,6 +152,21 @@ def run(
                     ))
             finally:
                 progress.remove_task(task)
+
+    if with_ai:
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            console.print("[yellow]⚠ --with-ai ignorado: ANTHROPIC_API_KEY no configurado[/yellow]")
+        else:
+            ai = AiAnalyzer()
+            for sub_data in results:
+                if not sub_data.skipped:
+                    try:
+                        sub_data.ai_insights = ai.analyze(sub_data, start, end)
+                        console.print(
+                            f"[dim]IA: {len(sub_data.ai_insights)} insights — {sub_data.subscription_name}[/dim]"
+                        )
+                    except Exception as exc:
+                        console.print(f"[yellow]⚠ IA falló para {sub_data.subscription_name}: {exc}[/yellow]")
 
     report = Report(
         generated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),

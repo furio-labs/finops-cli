@@ -8,7 +8,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "data.json"
 def test_html_report_contains_subscription_name():
     report = report_from_json(FIXTURE.read_text())
     html = HtmlReporter().render(report)
-    assert "Acme Test" in html
+    assert "Test Subscription" in html
 
 
 def test_html_report_contains_total_cost():

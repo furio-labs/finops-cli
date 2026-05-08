@@ -63,4 +63,15 @@ class MarkdownReporter:
                     lines.append(f"| {f.severity} | {f.category} | `{rid_short}` | {savings} | {rec} |")
                 lines.append("")
 
+            if sub.ai_insights:
+                lines.append("### Análisis IA")
+                lines.append("")
+                lines.append("| Categoría | Título | Confianza | Ahorro Est./mes | Detalle |")
+                lines.append("|---|---|---|---|---|")
+                for ins in sub.ai_insights:
+                    savings = f"~${ins.estimated_monthly_savings_usd:.2f}" if ins.estimated_monthly_savings_usd > 0 else "—"
+                    detail = ins.detail.replace("|", "\\|")
+                    lines.append(f"| {ins.category} | {ins.title} | {ins.confidence} | {savings} | {detail} |")
+                lines.append("")
+
         return "\n".join(lines)

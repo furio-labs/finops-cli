@@ -23,6 +23,7 @@ _TAB_COLORS = {
     "Costs by Resource Group": "4A7B5A",
     "Marketplace": "7030A0",
     "Invoices": "595959",
+    "AI Insights": "8B4513",
 }
 
 _HEADER_BG = "1F5C6B"
@@ -98,6 +99,7 @@ class ExcelReporter:
         self._costs_by_rg(wb, report, months)
         self._marketplace(wb, report, months)
         self._invoices(wb, report)
+        self._ai_insights(wb, report)
 
         buf = BytesIO()
         wb.save(buf)
@@ -234,6 +236,24 @@ class ExcelReporter:
                     c.resource_type.split("/")[-1],
                 ] + month_values + [row_total, row_total / sub_total])
         _finalize(ws, usd_cols=month_cols + [total_col], pct_cols=[pct_col])
+
+    def _ai_insights(self, wb: Workbook, report: Report) -> None:
+        ws = wb.create_sheet("AI Insights")
+        ws.append(["Subscription", "Category", "Title", "Detail", "Est. Savings/mo (USD)", "Confidence"])
+        _style_header(ws, _TAB_COLORS["AI Insights"])
+        for sub in report.subscriptions:
+            if sub.skipped:
+                continue
+            for ins in sub.ai_insights:
+                ws.append([
+                    sub.subscription_name,
+                    ins.category,
+                    ins.title,
+                    ins.detail,
+                    ins.estimated_monthly_savings_usd,
+                    ins.confidence,
+                ])
+        _finalize(ws, usd_cols=[5])
 
     def _invoices(self, wb: Workbook, report: Report) -> None:
         ws = wb.create_sheet("Invoices")
