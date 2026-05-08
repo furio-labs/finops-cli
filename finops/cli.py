@@ -22,6 +22,7 @@ from finops.analyzers.dev_in_prod import DevInProdAnalyzer
 from finops.analyzers.scheduling import SchedulingAnalyzer
 from finops.models import SubscriptionData, Severity
 from finops.reporters.models import Report, report_to_json, report_from_json
+from finops.reporters.excel import ExcelReporter
 from finops.reporters.html import HtmlReporter
 from finops.reporters.markdown import MarkdownReporter
 from azure.core.exceptions import HttpResponseError
@@ -194,6 +195,7 @@ def _write_reports(report: Report, out_dir: Path) -> None:
     (out_dir / "data.json").write_text(report_to_json(report), encoding="utf-8")
     (out_dir / "report.html").write_text(HtmlReporter().render(report), encoding="utf-8")
     (out_dir / "report.md").write_text(MarkdownReporter().render(report), encoding="utf-8")
+    (out_dir / "report.xlsx").write_bytes(ExcelReporter().render(report))
     console.print(f"[green]Reports written to: {out_dir}[/green]")
 
 
