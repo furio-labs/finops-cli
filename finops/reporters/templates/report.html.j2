@@ -159,7 +159,7 @@
 {% set cats  = leaks.get(sub.subscription_id, []) %}
 
 {# ── Billing summary + Invoices ─────────────────────────────────────────── #}
-{% if sub.invoices %}
+{% if sub.costs %}
 {% set bill = billing.get(sub.subscription_id, {"accrual": 0, "outstanding": 0, "current_month": "", "invoices": []}) %}
 <section>
   <h2>Facturación — {{ sub.subscription_name }}</h2>
@@ -180,6 +180,7 @@
       <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">períodos registrados</div>
     </div>
   </div>
+  {% if sub.invoices %}
   <table>
     <thead><tr><th>Período</th><th>Monto</th><th>Moneda</th><th>Estado</th><th>Vencimiento</th><th>PDF</th></tr></thead>
     <tbody>
@@ -196,6 +197,7 @@
     {% endfor %}
     </tbody>
   </table>
+  {% endif %}
 </section>
 {% endif %}
 

@@ -1,6 +1,14 @@
 from __future__ import annotations
 from finops.reporters.models import Report
-from finops.models import Severity
+from finops.models import Severity, SubscriptionData
+
+
+def _effective_accrual_month(sub: SubscriptionData, date_to: str) -> str:
+    target = date_to[:7]
+    months_with_data = {day[:7] for c in sub.costs for day in c.daily_costs}
+    if target in months_with_data or not months_with_data:
+        return target
+    return max(months_with_data)
 
 
 class MarkdownReporter:
@@ -39,30 +47,31 @@ class MarkdownReporter:
                 lines.append("")
                 continue
 
-            if sub.invoices:
-                current_month = report.date_to[:7]
+            if sub.costs or sub.invoices:
+                effective_month = _effective_accrual_month(sub, report.date_to)
                 accrual = sum(
                     amt
                     for c in sub.costs
                     for day, amt in c.daily_costs.items()
-                    if day.startswith(current_month)
+                    if day.startswith(effective_month)
                 )
                 outstanding = sum(
                     inv.amount_due
                     for inv in sub.invoices
                     if inv.status.lower() in ("due", "past due", "overdue")
                 )
-                lines.append("### Facturas")
+                lines.append("### Facturación")
                 lines.append("")
-                lines.append(f"**Acumulado mes actual ({current_month}):** ${accrual:,.2f}  ")
+                lines.append(f"**Acumulado mes actual ({effective_month}):** ${accrual:,.2f}  ")
                 lines.append(f"**Facturas pendientes:** ${outstanding:,.2f}")
                 lines.append("")
-                lines.append("| Período | Monto | Moneda | Estado | Vencimiento |")
-                lines.append("|---|---|---|---|---|")
-                for inv in sub.invoices:
-                    due = inv.due_date or "—"
-                    lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
-                lines.append("")
+                if sub.invoices:
+                    lines.append("| Período | Monto | Moneda | Estado | Vencimiento |")
+                    lines.append("|---|---|---|---|---|")
+                    for inv in sub.invoices:
+                        due = inv.due_date or "—"
+                        lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
+                    lines.append("")
 
             lines.append(f"### Costo Total: ${sub.total_cost:.2f}")
             lines.append("")

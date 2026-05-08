@@ -114,16 +114,18 @@ class ExcelReporter:
             "Current Month Accrual (USD)", "Outstanding Invoices (USD)",
         ])
         _style_header(ws, _TAB_COLORS["Summary"])
-        current_month = report.date_to[:7]
         for sub in report.subscriptions:
             by_sev = {s.name: 0 for s in Severity}
             for f in sub.findings:
                 by_sev[f.severity.name] += 1
+            target_month = report.date_to[:7]
+            months_with_data = {day[:7] for c in sub.costs for day in c.daily_costs}
+            effective_month = target_month if (target_month in months_with_data or not months_with_data) else max(months_with_data)
             accrual = sum(
                 amt
                 for c in sub.costs
                 for day, amt in c.daily_costs.items()
-                if day.startswith(current_month)
+                if day.startswith(effective_month)
             )
             outstanding = sum(
                 inv.amount_due

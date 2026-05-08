@@ -4,10 +4,35 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from finops.reporters.models import report_from_json
+from finops.reporters.models import report_from_json, Report
 from finops.reporters.excel import ExcelReporter
+from finops.models import SubscriptionData, ResourceCost
 
 FIXTURE = Path(__file__).parent / "fixtures" / "data.json"
+
+
+def _report_no_invoices_monthly_granularity() -> Report:
+    sub = SubscriptionData(
+        subscription_id="sub-x",
+        subscription_name="No Invoice Sub",
+        resources=[],
+        costs=[
+            ResourceCost(
+                resource_id="/subscriptions/sub-x/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
+                resource_group="rg",
+                subscription_id="sub-x",
+                resource_type="microsoft.compute/virtualmachines",
+                daily_costs={"2026-04-01": 200.0, "2026-03-01": 180.0},
+            )
+        ],
+        invoices=[],
+    )
+    return Report(
+        generated_at="2026-05-07T00:00:00Z",
+        date_from="2026-01-01",
+        date_to="2026-05-07",
+        subscriptions=[sub],
+    )
 
 
 @pytest.fixture
@@ -48,6 +73,14 @@ def test_summary_outstanding_column(wb):
     # inv1 status=Due amount=1500.0; inv2 status=Paid → outstanding = 1500.0
     import pytest
     assert ws.cell(2, 10).value == pytest.approx(1500.0)
+
+
+def test_excel_accrual_falls_back_to_last_month_when_current_empty():
+    """Monthly granularity: date_to=2026-05-07 but no May costs → use April (200.0)."""
+    raw = ExcelReporter().render(_report_no_invoices_monthly_granularity())
+    wb = openpyxl.load_workbook(BytesIO(raw))
+    ws = wb["Summary"]
+    assert ws.cell(2, 9).value == pytest.approx(200.0)
 
 
 def test_summary_one_row_per_subscription(wb):
