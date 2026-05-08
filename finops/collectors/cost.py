@@ -112,9 +112,9 @@ class CostCollector:
         _ingest(props["rows"])
         next_link = props.get("nextLink")
 
-        # Subsequent pages — GET via nextLink
+        # Subsequent pages — POST to nextLink with same body (skiptoken embedded in URL)
         while next_link:
-            data = _get(next_link, token)
+            data = _post(next_link, body, token)
             props = data["properties"]
             _ingest(props["rows"])
             next_link = props.get("nextLink")

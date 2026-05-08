@@ -102,14 +102,16 @@ def test_cost_collector_follows_next_link(mocker):
     mock_post = mocker.patch("finops.collectors.cost._post", return_value={
         "properties": {"columns": columns, "rows": page1_rows, "nextLink": "https://next-page"}
     })
-    mock_get = mocker.patch("finops.collectors.cost._get", return_value={
-        "properties": {"columns": columns, "rows": page2_rows, "nextLink": None}
-    })
+    mock_post = mocker.patch("finops.collectors.cost._post", side_effect=[
+        {"properties": {"columns": columns, "rows": page1_rows, "nextLink": "https://next-page"}},
+        {"properties": {"columns": columns, "rows": page2_rows, "nextLink": None}},
+    ])
 
     results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
     assert len(results) == 1
     assert results[0].total_cost == pytest.approx(10.0)
-    mock_get.assert_called_once_with("https://next-page", "fake-token")
+    assert mock_post.call_count == 2
+    assert mock_post.call_args_list[1][0][0] == "https://next-page"
 
 
 def test_cost_collector_raises_on_api_error(mocker):
