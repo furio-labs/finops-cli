@@ -161,6 +161,27 @@ def _heat_class(value: float, max_cost: float) -> str:
     return "heat-1"
 
 
+def _billing_summary(sub: SubscriptionData, date_to: str) -> dict:
+    current_month = date_to[:7]
+    accrual = sum(
+        amt
+        for c in sub.costs
+        for day, amt in c.daily_costs.items()
+        if day.startswith(current_month)
+    )
+    outstanding = sum(
+        inv.amount_due
+        for inv in sub.invoices
+        if inv.status.lower() in ("due", "past due", "overdue")
+    )
+    return {
+        "accrual": accrual,
+        "outstanding": outstanding,
+        "current_month": current_month,
+        "invoices": sub.invoices,
+    }
+
+
 def _leaks_by_category(sub: SubscriptionData) -> list[dict]:
     order = ["Idle", "WrongSku", "Scheduling", "DevInProd", "Untagged"]
     cats: dict[str, dict] = {}
@@ -202,10 +223,16 @@ class HtmlReporter:
             for sub in report.subscriptions
             if not sub.skipped
         }
+        billing = {
+            sub.subscription_id: _billing_summary(sub, report.date_to)
+            for sub in report.subscriptions
+            if not sub.skipped
+        }
         return template.render(
             report=report,
             evolution=evolution,
             leaks=leaks,
             marketplace=marketplace,
             rg_data=rg_data,
+            billing=billing,
         )

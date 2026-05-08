@@ -158,19 +158,38 @@
 {% set evo   = evolution.get(sub.subscription_id, {"months":[], "resources":[], "max_cost":1}) %}
 {% set cats  = leaks.get(sub.subscription_id, []) %}
 
-{# ── Invoices ──────────────────────────────────────────────────────────── #}
+{# ── Billing summary + Invoices ─────────────────────────────────────────── #}
 {% if sub.invoices %}
+{% set bill = billing.get(sub.subscription_id, {"accrual": 0, "outstanding": 0, "current_month": "", "invoices": []}) %}
 <section>
-  <h2>Facturas — {{ sub.subscription_name }}</h2>
+  <h2>Facturación — {{ sub.subscription_name }}</h2>
+  <div class="kpi-row" style="display:flex;gap:1.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <div class="kpi-card" style="flex:1;min-width:180px;background:var(--surface);border-radius:8px;padding:1rem 1.25rem;border:1px solid var(--border);">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.25rem;">Acumulado {{ bill.current_month }}</div>
+      <div style="font-size:1.5rem;font-weight:700;color:var(--accent);">${{ "{:,.2f}".format(bill.accrual) }}</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">consumo sin facturar</div>
+    </div>
+    <div class="kpi-card" style="flex:1;min-width:180px;background:var(--surface);border-radius:8px;padding:1rem 1.25rem;border:1px solid var(--border);">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.25rem;">Facturas pendientes</div>
+      <div style="font-size:1.5rem;font-weight:700;color:{% if bill.outstanding > 0 %}#e53e3e{% else %}var(--accent){% endif %};">${{ "{:,.2f}".format(bill.outstanding) }}</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">por pagar</div>
+    </div>
+    <div class="kpi-card" style="flex:1;min-width:180px;background:var(--surface);border-radius:8px;padding:1rem 1.25rem;border:1px solid var(--border);">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.25rem;">Historial facturas</div>
+      <div style="font-size:1.5rem;font-weight:700;">{{ sub.invoices|length }}</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">períodos registrados</div>
+    </div>
+  </div>
   <table>
     <thead><tr><th>Período</th><th>Monto</th><th>Moneda</th><th>Estado</th><th>Vencimiento</th><th>PDF</th></tr></thead>
     <tbody>
     {% for inv in sub.invoices %}
+    {% set status_color = "#e53e3e" if inv.status.lower() in ("due", "past due", "overdue") else ("#38a169" if inv.status.lower() == "paid" else "#718096") %}
     <tr>
       <td>{{ inv.billing_period }}</td>
-      <td class="savings">${{ "%.2f"|format(inv.amount_due) }}</td>
+      <td class="savings">${{ "{:,.2f}".format(inv.amount_due) }}</td>
       <td>{{ inv.currency }}</td>
-      <td>{{ inv.status }}</td>
+      <td><span style="display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.75rem;font-weight:600;background:{{ status_color }}20;color:{{ status_color }};">{{ inv.status }}</span></td>
       <td>{{ inv.due_date or "—" }}</td>
       <td>{% if inv.pdf_url %}<a href="{{ inv.pdf_url }}" target="_blank">Descargar</a>{% else %}—{% endif %}</td>
     </tr>

@@ -111,12 +111,25 @@ class ExcelReporter:
             "Subscription", "Total Cost (USD)",
             "CRITICAL", "HIGH", "MEDIUM", "INFO",
             "Est. Savings/mo (USD)", "Skipped",
+            "Current Month Accrual (USD)", "Outstanding Invoices (USD)",
         ])
         _style_header(ws, _TAB_COLORS["Summary"])
+        current_month = report.date_to[:7]
         for sub in report.subscriptions:
             by_sev = {s.name: 0 for s in Severity}
             for f in sub.findings:
                 by_sev[f.severity.name] += 1
+            accrual = sum(
+                amt
+                for c in sub.costs
+                for day, amt in c.daily_costs.items()
+                if day.startswith(current_month)
+            )
+            outstanding = sum(
+                inv.amount_due
+                for inv in sub.invoices
+                if inv.status.lower() in ("due", "past due", "overdue")
+            )
             ws.append([
                 sub.subscription_name,
                 sub.total_cost,
@@ -126,8 +139,10 @@ class ExcelReporter:
                 by_sev["INFO"],
                 sum(f.estimated_monthly_savings_usd for f in sub.findings),
                 sub.skipped,
+                accrual,
+                outstanding,
             ])
-        _finalize(ws, usd_cols=[2, 7])
+        _finalize(ws, usd_cols=[2, 7, 9, 10])
 
     def _findings(self, wb: Workbook, report: Report) -> None:
         ws = wb.create_sheet("Findings")

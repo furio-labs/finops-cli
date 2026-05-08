@@ -50,7 +50,18 @@
           "amount_due": 1500.0,
           "currency": "USD",
           "status": "Due",
-          "due_date": null,
+          "due_date": "2026-06-15",
+          "pdf_url": null
+        },
+        {
+          "id": "inv2",
+          "name": "202604",
+          "subscription_id": "sub1",
+          "billing_period": "202604",
+          "amount_due": 800.0,
+          "currency": "USD",
+          "status": "Paid",
+          "due_date": "2026-05-15",
           "pdf_url": null
         }
       ],

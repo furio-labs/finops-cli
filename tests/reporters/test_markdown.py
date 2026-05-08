@@ -35,3 +35,24 @@ def test_markdown_contains_ai_insights_section():
     md = MarkdownReporter().render(report)
     assert "Análisis IA" in md
     assert "VMs sobredimensionadas" in md
+
+
+def test_markdown_contains_accrual():
+    report = report_from_json(FIXTURE.read_text())
+    md = MarkdownReporter().render(report)
+    assert "Acumulado mes actual" in md
+    assert "16.00" in md
+
+
+def test_markdown_contains_outstanding():
+    report = report_from_json(FIXTURE.read_text())
+    md = MarkdownReporter().render(report)
+    assert "Facturas pendientes" in md
+    assert "1500.00" in md
+
+
+def test_markdown_contains_both_invoice_periods():
+    report = report_from_json(FIXTURE.read_text())
+    md = MarkdownReporter().render(report)
+    assert "202605" in md
+    assert "202604" in md

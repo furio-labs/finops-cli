@@ -40,12 +40,28 @@ class MarkdownReporter:
                 continue
 
             if sub.invoices:
+                current_month = report.date_to[:7]
+                accrual = sum(
+                    amt
+                    for c in sub.costs
+                    for day, amt in c.daily_costs.items()
+                    if day.startswith(current_month)
+                )
+                outstanding = sum(
+                    inv.amount_due
+                    for inv in sub.invoices
+                    if inv.status.lower() in ("due", "past due", "overdue")
+                )
                 lines.append("### Facturas")
                 lines.append("")
-                lines.append("| Período | Monto | Moneda | Estado |")
-                lines.append("|---|---|---|---|")
+                lines.append(f"**Acumulado mes actual ({current_month}):** ${accrual:,.2f}  ")
+                lines.append(f"**Facturas pendientes:** ${outstanding:,.2f}")
+                lines.append("")
+                lines.append("| Período | Monto | Moneda | Estado | Vencimiento |")
+                lines.append("|---|---|---|---|---|")
                 for inv in sub.invoices:
-                    lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} |")
+                    due = inv.due_date or "—"
+                    lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
                 lines.append("")
 
             lines.append(f"### Costo Total: ${sub.total_cost:.2f}")

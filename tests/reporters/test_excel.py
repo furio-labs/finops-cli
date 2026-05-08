@@ -32,7 +32,22 @@ def test_summary_headers(wb):
     assert headers == [
         "Subscription", "Total Cost (USD)", "CRITICAL", "HIGH", "MEDIUM", "INFO",
         "Est. Savings/mo (USD)", "Skipped",
+        "Current Month Accrual (USD)", "Outstanding Invoices (USD)",
     ]
+
+
+def test_summary_accrual_column(wb):
+    ws = wb["Summary"]
+    # All costs in fixture are in 2026-05, date_to is 2026-05-06 → accrual = 16.0
+    import pytest
+    assert ws.cell(2, 9).value == pytest.approx(16.0)
+
+
+def test_summary_outstanding_column(wb):
+    ws = wb["Summary"]
+    # inv1 status=Due amount=1500.0; inv2 status=Paid → outstanding = 1500.0
+    import pytest
+    assert ws.cell(2, 10).value == pytest.approx(1500.0)
 
 
 def test_summary_one_row_per_subscription(wb):
@@ -116,7 +131,7 @@ def test_invoices_headers(wb):
 
 def test_invoices_one_row_per_invoice(wb):
     ws = wb["Invoices"]
-    assert ws.max_row == 2  # header + 1 invoice
+    assert ws.max_row == 3  # header + 2 invoices
 
 
 def test_invoices_values(wb):
