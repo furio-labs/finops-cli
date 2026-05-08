@@ -34,6 +34,8 @@ class ResourceCost:
     subscription_id: str
     resource_type: str
     daily_costs: dict[str, float]  # "YYYY-MM-DD" -> USD
+    publisher_type: str = "Azure"  # "Azure" | "Marketplace"
+    service_name: str = ""
 
     @property
     def total_cost(self) -> float:

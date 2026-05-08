@@ -50,7 +50,18 @@ def _from_dict(data: dict) -> Report:
     subs = []
     for s in data["subscriptions"]:
         resources = [AzureResource(**r) for r in s["resources"]]
-        costs = [ResourceCost(**c) for c in s["costs"]]
+        costs = [
+            ResourceCost(
+                resource_id=c["resource_id"],
+                resource_group=c["resource_group"],
+                subscription_id=c["subscription_id"],
+                resource_type=c["resource_type"],
+                daily_costs=c["daily_costs"],
+                publisher_type=c.get("publisher_type", "Azure"),
+                service_name=c.get("service_name", ""),
+            )
+            for c in s["costs"]
+        ]
         invoices = [Invoice(**i) for i in s["invoices"]]
         findings = [
             Finding(

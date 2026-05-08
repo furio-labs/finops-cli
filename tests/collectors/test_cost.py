@@ -62,23 +62,25 @@ def test_parse_date():
     assert _parse_date(20260101) == "2026-01-01"
 
 
+def _cols(*names):
+    return [{"name": n} for n in names]
+
+_DEFAULT_COLS = _cols("Cost", "UsageDate", "ResourceId", "ResourceGroupName", "ResourceType", "PublisherType", "ServiceName", "Currency")
+
+def _row(cost, date_int, rid, rg, rtype, publisher="Azure", service=""):
+    return [cost, date_int, rid, rg, rtype, publisher, service, "USD"]
+
+
 def test_cost_collector_returns_resource_costs(mocker):
     rows = [
-        [10.0, 20260501, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines", "USD"],
-        [5.0,  20260502, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines", "USD"],
+        _row(10.0, 20260501, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines"),
+        _row(5.0,  20260502, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines"),
     ]
     mock_cred = MagicMock()
     mock_cred.get_token.return_value.token = "fake-token"
 
     mocker.patch("finops.collectors.cost._post", return_value={
-        "properties": {
-            "columns": [
-                {"name": "Cost"}, {"name": "UsageDate"}, {"name": "ResourceId"},
-                {"name": "ResourceGroupName"}, {"name": "ResourceType"}, {"name": "Currency"},
-            ],
-            "rows": rows,
-            "nextLink": None,
-        }
+        "properties": {"columns": _DEFAULT_COLS, "rows": rows, "nextLink": None}
     })
 
     results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
@@ -86,25 +88,53 @@ def test_cost_collector_returns_resource_costs(mocker):
     assert results[0].resource_id == "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1"
     assert results[0].daily_costs == {"2026-05-01": 10.0, "2026-05-02": 5.0}
     assert results[0].total_cost == 15.0
+    assert results[0].publisher_type == "Azure"
 
 
-def test_cost_collector_follows_next_link(mocker):
-    rid = "/subscriptions/sub1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1"
-    page1_rows = [[3.0, 20260501, rid, "rg", "microsoft.compute/virtualmachines", "USD"]]
-    page2_rows = [[7.0, 20260502, rid, "rg", "microsoft.compute/virtualmachines", "USD"]]
-    columns = [
-        {"name": "Cost"}, {"name": "UsageDate"}, {"name": "ResourceId"},
-        {"name": "ResourceGroupName"}, {"name": "ResourceType"}, {"name": "Currency"},
+def test_cost_collector_captures_marketplace(mocker):
+    rows = [
+        _row(100.0, 20260501, "mp-resource-id", "", "microsoft.saas/resources", "Marketplace", "SaaS"),
     ]
     mock_cred = MagicMock()
     mock_cred.get_token.return_value.token = "fake-token"
 
-    mock_post = mocker.patch("finops.collectors.cost._post", return_value={
-        "properties": {"columns": columns, "rows": page1_rows, "nextLink": "https://next-page"}
+    mocker.patch("finops.collectors.cost._post", return_value={
+        "properties": {"columns": _DEFAULT_COLS, "rows": rows, "nextLink": None}
     })
+
+    results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 1))
+    assert len(results) == 1
+    assert results[0].publisher_type == "Marketplace"
+    assert results[0].service_name == "SaaS"
+    assert results[0].total_cost == 100.0
+
+
+def test_cost_collector_synthesises_id_for_empty_rid(mocker):
+    rows = [_row(50.0, 20260501, "", "", "unknown", "Marketplace", "SomeService")]
+    mock_cred = MagicMock()
+    mock_cred.get_token.return_value.token = "fake-token"
+
+    mocker.patch("finops.collectors.cost._post", return_value={
+        "properties": {"columns": _DEFAULT_COLS, "rows": rows, "nextLink": None}
+    })
+
+    results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 1))
+    assert len(results) == 1
+    assert "marketplace" in results[0].resource_id
+    assert results[0].total_cost == 50.0
+
+
+def test_cost_collector_follows_next_link(mocker):
+    rid = "/subscriptions/sub1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1"
+    page1_rows = [_row(3.0, 20260501, rid, "rg", "microsoft.compute/virtualmachines")]
+    page2_rows = [_row(7.0, 20260502, rid, "rg", "microsoft.compute/virtualmachines")]
+
+    mock_cred = MagicMock()
+    mock_cred.get_token.return_value.token = "fake-token"
+
     mock_post = mocker.patch("finops.collectors.cost._post", side_effect=[
-        {"properties": {"columns": columns, "rows": page1_rows, "nextLink": "https://next-page"}},
-        {"properties": {"columns": columns, "rows": page2_rows, "nextLink": None}},
+        {"properties": {"columns": _DEFAULT_COLS, "rows": page1_rows, "nextLink": "https://next-page"}},
+        {"properties": {"columns": _DEFAULT_COLS, "rows": page2_rows, "nextLink": None}},
     ])
 
     results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))

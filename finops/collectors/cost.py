@@ -134,6 +134,8 @@ class CostCollector:
                     {"type": "Dimension", "name": "ResourceId"},
                     {"type": "Dimension", "name": "ResourceGroupName"},
                     {"type": "Dimension", "name": "ResourceType"},
+                    {"type": "Dimension", "name": "PublisherType"},
+                    {"type": "Dimension", "name": "ServiceName"},
                 ],
             },
         }
@@ -157,22 +159,37 @@ class CostCollector:
             )
 
         def _ingest(rows: list) -> None:
-            ci = col_index["Cost"]
-            di = col_index[actual_date_col]
-            ri = col_index["ResourceId"]
+            ci  = col_index["Cost"]
+            di  = col_index[actual_date_col]
+            ri  = col_index["ResourceId"]
             rgi = col_index["ResourceGroupName"]
             rti = col_index["ResourceType"]
+            pti = col_index.get("PublisherType")
+            si  = col_index.get("ServiceName")
+
             for row in rows:
-                rid = row[ri]
-                day = _parse_date_value(row[di])
+                raw_rid = str(row[ri]) if row[ri] else ""
+                publisher = str(row[pti]).capitalize() if pti is not None else "Azure"
+                svc_name  = str(row[si]) if si is not None else ""
+
+                # Marketplace items often lack a full ARM resource ID — synthesize one
+                if not raw_rid or raw_rid.lower() in ("unknown", "unassigned", ""):
+                    rid = f"/subscriptions/{subscription_id}/marketplace/{svc_name or 'unknown'}"
+                else:
+                    rid = raw_rid
+
+                day  = _parse_date_value(row[di])
                 cost = float(row[ci])
+
                 if rid not in costs:
                     costs[rid] = ResourceCost(
                         resource_id=rid,
-                        resource_group=row[rgi],
+                        resource_group=row[rgi] or "",
                         subscription_id=subscription_id,
-                        resource_type=row[rti],
+                        resource_type=row[rti] or svc_name or "marketplace",
                         daily_costs={},
+                        publisher_type=publisher,
+                        service_name=svc_name,
                     )
                 costs[rid].daily_costs[day] = costs[rid].daily_costs.get(day, 0.0) + cost
 

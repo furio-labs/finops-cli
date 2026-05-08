@@ -15,16 +15,26 @@ def _monthly_evolution(sub: SubscriptionData) -> dict:
         for day, amt in c.daily_costs.items():
             m = day[:7]
             monthly[m] = monthly.get(m, 0.0) + amt
+        is_mp = c.publisher_type.lower() == "marketplace"
+        name = (c.service_name or c.resource_id.split("/")[-1]) if is_mp else c.resource_id.split("/")[-1]
         resources.append({
             "resource_id": c.resource_id,
-            "name": c.resource_id.split("/")[-1],
-            "type_short": c.resource_type.split("/")[-1],
+            "name": name,
+            "type_short": c.service_name if is_mp else c.resource_type.split("/")[-1],
             "resource_group": c.resource_group,
             "monthly": monthly,
             "total": c.total_cost,
+            "is_marketplace": is_mp,
         })
     max_cost = max((r["total"] for r in resources), default=0.01)
-    return {"months": months, "resources": resources, "max_cost": max_cost}
+    marketplace_total = sum(c.total_cost for c in sub.costs if c.publisher_type.lower() == "marketplace")
+    return {
+        "months": months,
+        "resources": resources,
+        "max_cost": max_cost,
+        "marketplace_total": marketplace_total,
+        "azure_total": sub.total_cost - marketplace_total,
+    }
 
 
 def _heat_class(value: float, max_cost: float) -> str:
