@@ -5,7 +5,7 @@
   "subscriptions": [
     {
       "subscription_id": "sub1",
-      "subscription_name": "Acme Test",
+      "subscription_name": "Test Subscription",
       "skipped": false,
       "skip_reason": null,
       "resources": [
@@ -15,7 +15,7 @@
           "type": "microsoft.compute/virtualmachines",
           "resource_group": "rg-prod",
           "subscription_id": "sub1",
-          "location": "chilecentral",
+          "location": "eastus",
           "tags": {"environment": "production", "client": "acme"},
           "sku_name": "Standard_D4s_v5",
           "sku_tier": "Standard"
@@ -27,7 +27,18 @@
           "resource_group": "rg-prod",
           "subscription_id": "sub1",
           "resource_type": "microsoft.compute/virtualmachines",
-          "daily_costs": {"2026-05-01": 5.0, "2026-05-02": 5.0}
+          "daily_costs": {"2026-05-01": 5.0, "2026-05-02": 5.0},
+          "publisher_type": "Azure",
+          "service_name": ""
+        },
+        {
+          "resource_id": "/subscriptions/sub1/resourceGroups/rg-prod/providers/microsoft.saas/resources/datadog-abc12345-def67890-ghi11111",
+          "resource_group": "rg-prod",
+          "subscription_id": "sub1",
+          "resource_type": "microsoft.saas/resources",
+          "daily_costs": {"2026-05-01": 3.0, "2026-05-02": 3.0},
+          "publisher_type": "Marketplace",
+          "service_name": "Datadog"
         }
       ],
       "invoices": [
