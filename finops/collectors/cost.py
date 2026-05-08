@@ -1,10 +1,23 @@
 from __future__ import annotations
 import json
 import time
-from datetime import date
+from datetime import date, timedelta
 import urllib.request
 import urllib.error
 from finops.models import ResourceCost
+
+_MAX_DAYS = 365
+
+
+def _date_chunks(start: date, end: date) -> list[tuple[date, date]]:
+    """Split a date range into chunks of at most _MAX_DAYS days."""
+    chunks = []
+    chunk_start = start
+    while chunk_start <= end:
+        chunk_end = min(chunk_start + timedelta(days=_MAX_DAYS - 1), end)
+        chunks.append((chunk_start, chunk_end))
+        chunk_start = chunk_end + timedelta(days=1)
+    return chunks
 
 _API_VERSION = "2023-11-01"
 _BASE_URL = "https://management.azure.com"
@@ -63,6 +76,22 @@ class CostCollector:
             f"{_BASE_URL}/subscriptions/{subscription_id}"
             f"/providers/Microsoft.CostManagement/query?api-version={_API_VERSION}"
         )
+        costs: dict[str, ResourceCost] = {}
+
+        for chunk_start, chunk_end in _date_chunks(start_date, end_date):
+            self._collect_chunk(url, subscription_id, chunk_start, chunk_end, token, costs)
+
+        return list(costs.values())
+
+    def _collect_chunk(
+        self,
+        url: str,
+        subscription_id: str,
+        start_date: date,
+        end_date: date,
+        token: str,
+        costs: dict[str, ResourceCost],
+    ) -> None:
         body = {
             "type": "ActualCost",
             "timeframe": "Custom",
@@ -77,10 +106,6 @@ class CostCollector:
                 ],
             },
         }
-
-        costs: dict[str, ResourceCost] = {}
-        col_index: dict[str, int] = {}
-        next_link: str | None = None
 
         # First page — POST
         data = _post(url, body, token)
@@ -124,5 +149,3 @@ class CostCollector:
             props = data["properties"]
             _ingest(props["rows"])
             next_link = props.get("nextLink")
-
-        return list(costs.values())
