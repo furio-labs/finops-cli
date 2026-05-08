@@ -97,6 +97,20 @@
     font-size: .8rem; border-bottom: 2px solid #bbf7d0; white-space: nowrap;
   }
   .sum-row td:first-child { color: #374151; font-weight: 600; }
+
+  /* Selection summary card */
+  .sel-card {
+    display: inline-flex; align-items: stretch; gap: 0;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: .85rem; overflow: hidden;
+  }
+  .sel-card-stat {
+    padding: .85rem 1.4rem; text-align: center; min-width: 110px;
+  }
+  .sel-card-stat + .sel-card-stat { border-left: 1px solid #f3f4f6; }
+  .sel-card-val { display: block; font-size: 1.55rem; font-weight: 700; line-height: 1.1; color: #1e3a5f; }
+  .sel-card-val.green { color: #059669; }
+  .sel-card-lbl { display: block; font-size: .72rem; color: #9ca3af; margin-top: .2rem; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 </head>
 <body>
@@ -199,6 +213,17 @@
       </div>
     </div>
     <span class="row-count" id="rg-rc-{{ rg_sid }}">{{ rgd.rgs|length }} resource groups</span>
+  </div>
+
+  <div class="sel-card">
+    <div class="sel-card-stat">
+      <span class="sel-card-val" id="rg-card-n-{{ rg_sid }}">{{ rgd.rgs|length }}</span>
+      <span class="sel-card-lbl">Resource Groups</span>
+    </div>
+    <div class="sel-card-stat">
+      <span class="sel-card-val green" id="rg-card-t-{{ rg_sid }}">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</span>
+      <span class="sel-card-lbl">Gasto Total</span>
+    </div>
   </div>
 
   <div class="monthly-wrap">
@@ -337,6 +362,17 @@
       </div>
     </div>
     <span class="row-count" id="evo-n-{{ sid }}">{{ evo.resources|length }} recursos</span>
+  </div>
+
+  <div class="sel-card">
+    <div class="sel-card-stat">
+      <span class="sel-card-val" id="evo-card-n-{{ sid }}">{{ evo.resources|length }}</span>
+      <span class="sel-card-lbl">Recursos</span>
+    </div>
+    <div class="sel-card-stat">
+      <span class="sel-card-val green" id="evo-card-t-{{ sid }}">${{ "%.2f"|format(evo.resources | map(attribute='total') | sum) }}</span>
+      <span class="sel-card-lbl">Gasto Total</span>
+    </div>
   </div>
 
   {# Pre-compute evo monthly totals in Jinja for initial render #}
@@ -532,10 +568,13 @@ function msAllEvo(sid) {
 function msChgEvo(sid) { _msSyncAll('evo-drop-' + sid, 'evo-trig-' + sid); evoFilter(sid); }
 
 // ── Summary recompute ─────────────────────────────────────────────────────
-function _recomputeSum(tableId, sumNId, sumMonthPrefix, sumTId) {
+function _recomputeSum(tableId, sumNId, sumMonthPrefix, sumTId, cardNId, cardTId) {
   const rows = Array.from(document.querySelectorAll('#' + tableId + ' tbody tr[data-rg]')).filter(r => r.style.display !== 'none');
+  const count = rows.length;
+
+  // Update thead sum row
   const n = document.getElementById(sumNId);
-  if (n) n.textContent = rows.length + ' seleccionados';
+  if (n) n.textContent = count + ' seleccionados';
 
   // Sum by month (cells with data-month attr)
   const monthSums = {};
@@ -555,6 +594,12 @@ function _recomputeSum(tableId, sumNId, sumMonthPrefix, sumTId) {
   });
   const t = document.getElementById(sumTId);
   if (t) t.textContent = '$' + total.toFixed(2);
+
+  // Update selection card
+  const cn = document.getElementById(cardNId);
+  if (cn) cn.textContent = count;
+  const ct = document.getElementById(cardTId);
+  if (ct) ct.textContent = '$' + total.toFixed(2);
 }
 
 // ── RG table filter ────────────────────────────────────────────────────────
@@ -569,7 +614,7 @@ function rgFilter(sid) {
   });
   const rc = document.getElementById('rg-rc-' + sid);
   if (rc) rc.textContent = n + ' resource groups';
-  _recomputeSum('rg-tbl-' + sid, 'rg-sum-n-' + sid, 'rg-sum-m-' + sid + '-', 'rg-sum-t-' + sid);
+  _recomputeSum('rg-tbl-' + sid, 'rg-sum-n-' + sid, 'rg-sum-m-' + sid + '-', 'rg-sum-t-' + sid, 'rg-card-n-' + sid, 'rg-card-t-' + sid);
 }
 
 // ── Evolution table filter ─────────────────────────────────────────────────
@@ -587,7 +632,7 @@ function evoFilter(sid) {
   });
   const el = document.getElementById('evo-n-' + sid);
   if (el) el.textContent = n + ' recursos';
-  _recomputeSum('evo-' + sid, 'evo-sum-n-' + sid, 'evo-sum-m-' + sid + '-', 'evo-sum-t-' + sid);
+  _recomputeSum('evo-' + sid, 'evo-sum-n-' + sid, 'evo-sum-m-' + sid + '-', 'evo-sum-t-' + sid, 'evo-card-n-' + sid, 'evo-card-t-' + sid);
 }
 
 // ── Marketplace filter ─────────────────────────────────────────────────────
