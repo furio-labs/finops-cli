@@ -6,7 +6,7 @@
 <title>FinOps Report — {{ report.date_from }} to {{ report.date_to }}</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+  body { font-family: system-ui, sans-serif; background: #f0f2f5; color: #1a1a1a; }
   header { background: #1e3a5f; color: #fff; padding: 2rem; }
   header h1 { font-size: 1.6rem; margin-bottom: .25rem; }
   header p { opacity: .7; font-size: .9rem; }
@@ -15,28 +15,62 @@
   .metric .value { font-size: 1.6rem; font-weight: 700; display: block; }
   .metric .label { font-size: .8rem; opacity: .75; }
   .severity-row { display: flex; gap: .75rem; margin-top: 1rem; flex-wrap: wrap; }
-  .badge { padding: .25rem .75rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .badge { padding: .25rem .75rem; border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
   .CRITICAL { background: #fee2e2; color: #991b1b; }
-  .HIGH { background: #fef3c7; color: #92400e; }
-  .MEDIUM { background: #e0f2fe; color: #075985; }
-  .INFO { background: #f0fdf4; color: #166534; }
-  main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+  .HIGH     { background: #fef3c7; color: #92400e; }
+  .MEDIUM   { background: #e0f2fe; color: #075985; }
+  .INFO     { background: #f0fdf4; color: #166534; }
+  main { max-width: 1300px; margin: 2rem auto; padding: 0 1rem; }
   section { background: #fff; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #1e3a5f; border-bottom: 2px solid #e5e7eb; padding-bottom: .5rem; }
-  h3 { font-size: .95rem; margin: 1rem 0 .5rem; color: #374151; }
-  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-  th { background: #f9fafb; text-align: left; padding: .5rem .75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
-  td { padding: .45rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  h3 { font-size: .9rem; margin: 1.25rem 0 .5rem; color: #374151; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th { background: #f9fafb; text-align: left; padding: .5rem .75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { background: #f1f5f9; }
+  td { padding: .4rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  .resource-id { font-family: monospace; font-size: .78rem; color: #6b7280; word-break: break-all; }
-  .filter-bar { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+  tr:hover td { background: #fafafa; }
+  .rname { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rtype { font-size: .75rem; color: #6b7280; }
+  .filter-bar { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
   .filter-bar input, .filter-bar select { padding: .4rem .75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: .85rem; }
+  .filter-bar input { min-width: 240px; }
+  .row-count { font-size: .78rem; color: #9ca3af; margin-left: .25rem; }
   .skipped { color: #d97706; font-style: italic; }
   .savings { color: #059669; font-weight: 600; }
-  .no-findings { color: #9ca3af; font-size: .85rem; }
+  .cost-zero { color: #d1d5db; }
+  .no-data { color: #9ca3af; font-size: .85rem; }
+  .col-total { background: #f0fdf4 !important; }
+
+  /* Monthly heat map */
+  .monthly-wrap { overflow-x: auto; }
+  .heat-1    { background: #fef9c3; }
+  .heat-2    { background: #fde68a; }
+  .heat-3    { background: #fcd34d; }
+  .heat-4    { background: #f59e0b; color:#1a1a1a; }
+  .heat-5    { background: #d97706; color:#fff; }
+  .heat-6    { background: #b45309; color:#fff; }
+  .heat-high { background: #991b1b; color:#fff; font-weight:700; }
+
+  /* Leak cards */
+  .leak-cards { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .leak-card {
+    flex: 1; min-width: 150px; max-width: 220px;
+    border: 2px solid #e5e7eb; border-radius: 8px; padding: 1rem;
+    cursor: pointer; transition: box-shadow .15s, border-color .15s;
+  }
+  .leak-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .leak-card.active { border-color: #1e3a5f; }
+  .leak-card.dimmed { opacity: .4; }
+  .lc-count  { font-size: 2rem; font-weight: 700; color: #1e3a5f; line-height: 1; }
+  .lc-label  { font-size: .85rem; font-weight: 600; margin: .35rem 0 .2rem; color: #374151; }
+  .lc-savings { font-size: .82rem; }
+  .lc-savings.green { color: #059669; font-weight: 600; }
+  .lc-savings.grey  { color: #9ca3af; }
 </style>
 </head>
 <body>
+
 <header>
   <h1>FinOps Report</h1>
   <p>Período: {{ report.date_from }} — {{ report.date_to }} &nbsp;·&nbsp; Generado: {{ report.generated_at }}</p>
@@ -67,15 +101,20 @@
 </header>
 
 <main>
-
 {% for sub in report.subscriptions %}
+
+{# ── Skipped subscription ──────────────────────────────────────────────── #}
 {% if sub.skipped %}
 <section>
   <h2>{{ sub.subscription_name }} ({{ sub.subscription_id }})</h2>
   <p class="skipped">&#x26A0; Omitida — {{ sub.skip_reason }}</p>
 </section>
-{% else %}
 
+{% else %}
+{% set evo   = evolution.get(sub.subscription_id, {"months":[], "resources":[], "max_cost":1}) %}
+{% set cats  = leaks.get(sub.subscription_id, []) %}
+
+{# ── Invoices ──────────────────────────────────────────────────────────── #}
 {% if sub.invoices %}
 <section>
   <h2>Facturas — {{ sub.subscription_name }}</h2>
@@ -85,7 +124,7 @@
     {% for inv in sub.invoices %}
     <tr>
       <td>{{ inv.billing_period }}</td>
-      <td>${{ "%.2f"|format(inv.amount_due) }}</td>
+      <td class="savings">${{ "%.2f"|format(inv.amount_due) }}</td>
       <td>{{ inv.currency }}</td>
       <td>{{ inv.status }}</td>
       <td>{{ inv.due_date or "—" }}</td>
@@ -97,80 +136,160 @@
 </section>
 {% endif %}
 
+{# ── Cost by resource group ────────────────────────────────────────────── #}
+{% if sub.costs %}
 <section>
   <h2>Costos por Resource Group — {{ sub.subscription_name }}</h2>
-  {% set rg_costs = namespace(data={}) %}
-  {% for cost in sub.costs %}
-    {% set _ = rg_costs.data.update({cost.resource_group: rg_costs.data.get(cost.resource_group, 0) + cost.total_cost}) %}
+  {% set rg_map = namespace(data={}) %}
+  {% for c in sub.costs %}
+    {% set _ = rg_map.data.update({c.resource_group: rg_map.data.get(c.resource_group, 0) + c.total_cost}) %}
   {% endfor %}
   <table>
-    <thead><tr><th>Resource Group</th><th>Costo Total</th><th>Recursos</th></tr></thead>
+    <thead><tr><th>Resource Group</th><th>Costo Total</th><th>Recursos con costo</th></tr></thead>
     <tbody>
-    {% for rg, total in rg_costs.data.items() %}
-    {% set rg_resource_count = sub.resources|selectattr("resource_group","equalto",rg)|list|length %}
+    {% for rg, total in rg_map.data.items() | sort(attribute="1", reverse=True) %}
+    {% set rg_n = sub.costs | selectattr("resource_group","equalto",rg) | list | length %}
     <tr>
       <td>{{ rg }}</td>
-      <td>${{ "%.2f"|format(total) }}</td>
-      <td>{{ rg_resource_count }}</td>
+      <td class="savings">${{ "%.2f"|format(total) }}</td>
+      <td>{{ rg_n }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
 </section>
+{% endif %}
 
-{% if sub.findings %}
+{# ── Monthly evolution ─────────────────────────────────────────────────── #}
+{% if evo.resources %}
+{% set sid = sub.subscription_id %}
 <section>
-  <h2>Hallazgos — {{ sub.subscription_name }}</h2>
+  <h2>Evolución Mensual por Recurso — {{ sub.subscription_name }}</h2>
   <div class="filter-bar">
-    <input type="text" id="filter-{{ sub.subscription_id }}" placeholder="Filtrar..." oninput="filterFindings('{{ sub.subscription_id }}')">
-    <select id="sev-filter-{{ sub.subscription_id }}" onchange="filterFindings('{{ sub.subscription_id }}')">
+    <input type="text" id="evo-q-{{ sid }}"
+           placeholder="Filtrar por nombre, tipo o resource group…"
+           oninput="evoFilter('{{ sid }}')">
+    <span class="row-count" id="evo-n-{{ sid }}">{{ evo.resources|length }} recursos</span>
+  </div>
+  <div class="monthly-wrap">
+  <table id="evo-{{ sid }}">
+    <thead><tr>
+      <th onclick="sortTbl('evo-{{ sid }}',0)">Recurso ↕</th>
+      <th onclick="sortTbl('evo-{{ sid }}',1)">Tipo</th>
+      <th onclick="sortTbl('evo-{{ sid }}',2)">Resource Group</th>
+      {% for m in evo.months %}<th onclick="sortTbl('evo-{{ sid }}',{{ loop.index + 2 }})">{{ m }}</th>{% endfor %}
+      <th class="col-total" onclick="sortTbl('evo-{{ sid }}',{{ evo.months|length + 3 }})">Total ↕</th>
+    </tr></thead>
+    <tbody>
+    {% for r in evo.resources %}
+    <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }} {{ r.resource_group|lower }}">
+      <td class="rname" title="{{ r.resource_id }}">{{ r.name }}</td>
+      <td class="rtype">{{ r.type_short }}</td>
+      <td class="rtype">{{ r.resource_group }}</td>
+      {% for m in evo.months %}
+      {% set mv = r.monthly.get(m, 0) %}
+      <td class="{{ heat_class(mv, evo.max_cost) }}" data-v="{{ mv }}">
+        {% if mv > 0 %}${{ "%.2f"|format(mv) }}{% else %}<span class="cost-zero">—</span>{% endif %}
+      </td>
+      {% endfor %}
+      <td class="col-total savings" data-v="{{ r.total }}">${{ "%.2f"|format(r.total) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{# ── Potential leaks & savings ─────────────────────────────────────────── #}
+{% if sub.findings %}
+{% set sid = sub.subscription_id %}
+<section>
+  <h2>Fugas de Costos y Ahorros Potenciales — {{ sub.subscription_name }}</h2>
+
+  {# Category cards #}
+  <div class="leak-cards" id="cards-{{ sid }}">
+    {% for cat in cats %}
+    <div class="leak-card active"
+         id="card-{{ sid }}-{{ cat.category }}"
+         onclick="leakCard('{{ sid }}','{{ cat.category }}')">
+      <div class="lc-count">{{ cat.findings|length }}</div>
+      <div class="lc-label">{{ cat.category }}</div>
+      <div class="lc-savings {% if cat.total_savings > 0 %}green{% else %}grey{% endif %}">
+        {% if cat.total_savings > 0 %}
+          ~${{ "%.2f"|format(cat.total_savings) }}/mes
+        {% else %}
+          Gobernanza
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Filter bar #}
+  <div class="filter-bar">
+    <input type="text" id="lk-q-{{ sid }}"
+           placeholder="Filtrar por recurso o recomendación…"
+           oninput="leakFilter('{{ sid }}')">
+    <select id="lk-sev-{{ sid }}" onchange="leakFilter('{{ sid }}')">
       <option value="">Todas las severidades</option>
       <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>INFO</option>
     </select>
+    <span class="row-count" id="lk-n-{{ sid }}">{{ sub.findings|length }} hallazgos</span>
   </div>
-  <table id="findings-{{ sub.subscription_id }}">
-    <thead><tr><th>Severidad</th><th>Categoría</th><th>Recurso</th><th>Ahorro Est./mes</th><th>Recomendación</th></tr></thead>
+
+  <table id="lk-{{ sid }}">
+    <thead><tr>
+      <th>Severidad</th><th>Categoría</th><th>Recurso</th>
+      <th>Tipo</th><th>Resource Group</th>
+      <th>Ahorro Est./mes</th><th>Recomendación</th>
+    </tr></thead>
     <tbody>
-    {% for f in sub.findings|sort(attribute="severity", reverse=True) %}
-    <tr>
+    {% for f in sub.findings | sort(attribute="severity", reverse=True) %}
+    <tr data-cat="{{ f.category }}" data-sev="{{ f.severity }}">
       <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
       <td>{{ f.category }}</td>
-      <td class="resource-id">{{ f.resource_id }}</td>
-      <td class="savings">{% if f.estimated_monthly_savings_usd > 0 %}~${{ "%.2f"|format(f.estimated_monthly_savings_usd) }}{% else %}—{% endif %}</td>
+      <td class="rname" title="{{ f.resource_id }}">{{ f.resource_id.split("/")[-1] }}</td>
+      <td class="rtype">{{ f.resource_type.split("/")[-1] }}</td>
+      <td class="rtype">{{ f.resource_group }}</td>
+      <td>{% if f.estimated_monthly_savings_usd > 0 %}<span class="savings">~${{ "%.2f"|format(f.estimated_monthly_savings_usd) }}</span>{% else %}—{% endif %}</td>
       <td>{{ f.recommendation }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
 </section>
-{% else %}
-<section><p class="no-findings">Sin hallazgos para {{ sub.subscription_name }}.</p></section>
 {% endif %}
 
+{# ── Per-resource detail ───────────────────────────────────────────────── #}
 <section>
   <h2>Detalle por Recurso — {{ sub.subscription_name }}</h2>
-  {% set cost_by_rid = namespace(data={}) %}
-  {% for c in sub.costs %}{% set _ = cost_by_rid.data.update({c.resource_id: c.total_cost}) %}{% endfor %}
-  {% set findings_by_rid = namespace(data={}) %}
+  {% set cost_idx = namespace(data={}) %}
+  {% for c in sub.costs %}{% set _ = cost_idx.data.update({c.resource_id: c.total_cost}) %}{% endfor %}
+  {% set find_idx = namespace(data={}) %}
   {% for f in sub.findings %}
-    {% if f.resource_id not in findings_by_rid.data %}{% set _ = findings_by_rid.data.update({f.resource_id: []}) %}{% endif %}
-    {% set _ = findings_by_rid.data[f.resource_id].append(f) %}
+    {% if f.resource_id not in find_idx.data %}{% set _ = find_idx.data.update({f.resource_id: []}) %}{% endif %}
+    {% set _ = find_idx.data[f.resource_id].append(f) %}
   {% endfor %}
 
-  {% for rg in sub.resources|map(attribute="resource_group")|unique %}
-  <h3>{{ rg }}</h3>
+  {% for rg in sub.resources | map(attribute="resource_group") | unique | sort %}
+  {% set rg_res = sub.resources | selectattr("resource_group","equalto",rg) | list %}
+  {% set rg_total = namespace(v=0) %}
+  {% for r in rg_res %}{% set rg_total.v = rg_total.v + cost_idx.data.get(r.id, 0) %}{% endfor %}
+  <h3>{{ rg }} &nbsp;<span style="color:#059669;font-weight:400">${{ "%.2f"|format(rg_total.v) }}</span></h3>
   <table>
     <thead><tr><th>Nombre</th><th>Tipo</th><th>SKU</th><th>Costo Total</th><th>Hallazgos</th></tr></thead>
     <tbody>
-    {% for r in sub.resources|selectattr("resource_group","equalto",rg)|list %}
+    {% for r in rg_res | sort(attribute="name") %}
+    {% set rc = cost_idx.data.get(r.id, 0) %}
     <tr>
-      <td>{{ r.name }}</td>
-      <td>{{ r.type }}</td>
-      <td>{{ r.sku_name or "—" }}</td>
-      <td>${{ "%.2f"|format(cost_by_rid.data.get(r.id, 0)) }}</td>
+      <td class="rname" title="{{ r.id }}">{{ r.name }}</td>
+      <td class="rtype">{{ r.type.split("/")[-1] }}</td>
+      <td class="rtype">{{ r.sku_name or "—" }}</td>
+      <td>{% if rc > 0 %}<span class="savings">${{ "%.2f"|format(rc) }}</span>{% else %}<span class="cost-zero">—</span>{% endif %}</td>
       <td>
-        {% for f in findings_by_rid.data.get(r.id, []) %}
-        <span class="badge {{ f.severity }}">{{ f.category }}</span>
+        {% for f in find_idx.data.get(r.id, []) %}
+        <span class="badge {{ f.severity }}" title="{{ f.recommendation }}">{{ f.category }}</span>
         {% else %}—
         {% endfor %}
       </td>
@@ -183,22 +302,70 @@
 
 {% endif %}
 {% endfor %}
-
 </main>
 
 <script>
-function filterFindings(subId) {
-  const text = document.getElementById('filter-' + subId).value.toLowerCase();
-  const sev = document.getElementById('sev-filter-' + subId).value;
-  const rows = document.querySelectorAll('#findings-' + subId + ' tbody tr');
-  rows.forEach(row => {
-    const rowText = row.textContent.toLowerCase();
-    const badge = row.querySelector('.badge');
-    const rowSev = badge ? badge.textContent.trim() : '';
-    const matchText = !text || rowText.includes(text);
-    const matchSev = !sev || rowSev === sev;
-    row.style.display = (matchText && matchSev) ? '' : 'none';
+// ── Monthly evolution filter ───────────────────────────────────────────────
+function evoFilter(sid) {
+  const q = document.getElementById('evo-q-' + sid).value.toLowerCase();
+  const rows = document.querySelectorAll('#evo-' + sid + ' tbody tr');
+  let n = 0;
+  rows.forEach(r => {
+    const show = !q || r.dataset.s.includes(q);
+    r.style.display = show ? '' : 'none';
+    if (show) n++;
   });
+  const el = document.getElementById('evo-n-' + sid);
+  if (el) el.textContent = n + ' recursos';
+}
+
+// ── Leak category cards ────────────────────────────────────────────────────
+const _activeCat = {};
+function leakCard(sid, cat) {
+  _activeCat[sid] = _activeCat[sid] === cat ? '' : cat;
+  document.querySelectorAll('[id^="card-' + sid + '-"]').forEach(c => {
+    const mine = c.id === 'card-' + sid + '-' + _activeCat[sid];
+    c.classList.toggle('active',  !_activeCat[sid] || mine);
+    c.classList.toggle('dimmed', !!_activeCat[sid] && !mine);
+  });
+  leakFilter(sid);
+}
+
+function leakFilter(sid) {
+  const cat  = _activeCat[sid] || '';
+  const q    = document.getElementById('lk-q-'  + sid).value.toLowerCase();
+  const sev  = document.getElementById('lk-sev-'+ sid).value;
+  const rows = document.querySelectorAll('#lk-' + sid + ' tbody tr');
+  let n = 0;
+  rows.forEach(r => {
+    const ok = (!cat || r.dataset.cat === cat)
+            && (!sev  || r.dataset.sev === sev)
+            && (!q    || r.textContent.toLowerCase().includes(q));
+    r.style.display = ok ? '' : 'none';
+    if (ok) n++;
+  });
+  const el = document.getElementById('lk-n-' + sid);
+  if (el) el.textContent = n + ' hallazgos';
+}
+
+// ── Column sort ────────────────────────────────────────────────────────────
+function sortTbl(id, col) {
+  const tbl = document.getElementById(id);
+  if (!tbl) return;
+  const tbody = tbl.tBodies[0];
+  const th = tbl.tHead.rows[0].cells[col];
+  const asc = th.dataset.dir !== 'asc';
+  th.dataset.dir = asc ? 'asc' : 'desc';
+  Array.from(tbody.rows)
+    .sort((a, b) => {
+      const av = a.cells[col]?.dataset.v ?? a.cells[col]?.textContent.trim() ?? '';
+      const bv = b.cells[col]?.dataset.v ?? b.cells[col]?.textContent.trim() ?? '';
+      const an = parseFloat(av), bn = parseFloat(bv);
+      return (!isNaN(an) && !isNaN(bn))
+        ? (asc ? an - bn : bn - an)
+        : (asc ? av.localeCompare(bv) : bv.localeCompare(av));
+    })
+    .forEach(r => tbody.appendChild(r));
 }
 </script>
 </body>
