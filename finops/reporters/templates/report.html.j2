@@ -68,6 +68,37 @@
   .lc-savings { font-size: .82rem; }
   .lc-savings.green { color: #059669; font-weight: 600; }
   .lc-savings.grey  { color: #9ca3af; }
+
+  /* Multi-select dropdown */
+  .ms-wrap { position: relative; display: inline-block; }
+  .ms-trigger {
+    padding: .4rem .75rem; border: 1px solid #d1d5db; border-radius: 6px;
+    cursor: pointer; font-size: .82rem; background: #fff; min-width: 220px;
+    user-select: none; white-space: nowrap;
+  }
+  .ms-trigger:hover { border-color: #9ca3af; }
+  .ms-drop {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+    background: #fff; border: 1px solid #d1d5db; border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.12); min-width: 240px;
+    max-height: 260px; overflow-y: auto; display: none; padding: .4rem 0;
+  }
+  .ms-drop.open { display: block; }
+  .ms-drop label {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .28rem .85rem; cursor: pointer; font-size: .81rem;
+  }
+  .ms-drop label:hover { background: #f9fafb; }
+  .ms-drop label.all-label { font-weight: 600; border-bottom: 1px solid #f3f4f6; padding-bottom: .45rem; margin-bottom: .2rem; }
+
+  /* Table summary bar */
+  .tbl-sum {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center;
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
+    padding: .55rem 1rem; margin-bottom: .75rem; font-size: .81rem; color: #374151;
+  }
+  .tbl-sum strong { color: #059669; }
+  .tbl-sum .sum-label { color: #6b7280; font-weight: 600; margin-right: .25rem; }
 </style>
 </head>
 <body>
@@ -139,6 +170,7 @@
 
 {# ── Cost by resource group (with monthly evolution) ─────────────────────── #}
 {% set rgd = rg_data.get(sub.subscription_id, {"months":[], "rgs":[], "monthly_totals":{}, "max_monthly":1}) %}
+{% set rg_sid = sub.subscription_id %}
 {% if rgd.rgs %}
 <section>
   <h2>Costos por Resource Group — {{ sub.subscription_name }}</h2>
@@ -157,38 +189,51 @@
   </div>
   {% endif %}
 
+  {# RG multi-select filter #}
+  <div class="filter-bar">
+    <div class="ms-wrap">
+      <div class="ms-trigger" id="rg-trig-{{ rg_sid }}" onclick="msToggle('rg-drop-{{ rg_sid }}')">Todos los Resource Groups ▾</div>
+      <div class="ms-drop" id="rg-drop-{{ rg_sid }}">
+        <label class="all-label"><input type="checkbox" value="__all__" checked onchange="msAllRg('{{ rg_sid }}')"> Todos</label>
+        {% for rg in rgd.rgs %}
+        <label><input type="checkbox" value="{{ rg.name }}" checked onchange="msChgRg('{{ rg_sid }}')"> {{ rg.name }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <span class="row-count" id="rg-rc-{{ rg_sid }}">{{ rgd.rgs|length }} resource groups</span>
+  </div>
+
+  {# Summary bar #}
+  <div class="tbl-sum" id="rg-sum-{{ rg_sid }}">
+    <span><span class="sum-label">Seleccionados:</span><strong id="rg-sum-n-{{ rg_sid }}">{{ rgd.rgs|length }}</strong></span>
+    {% for m in rgd.months %}
+    <span><span class="sum-label">{{ m }}:</span><strong id="rg-sum-m-{{ rg_sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(rgd.monthly_totals.get(m, 0)) }}</strong></span>
+    {% endfor %}
+    <span><span class="sum-label">Total:</span><strong id="rg-sum-t-{{ rg_sid }}">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</strong></span>
+  </div>
+
   <div class="monthly-wrap">
-  <table id="rg-tbl-{{ sub.subscription_id }}">
+  <table id="rg-tbl-{{ rg_sid }}">
     <thead><tr>
-      <th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',0)">Resource Group ↕</th>
-      <th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',1)">Recursos</th>
-      {% for m in rgd.months %}<th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',{{ loop.index + 1 }})">{{ m }}</th>{% endfor %}
-      <th class="col-total" onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',{{ rgd.months|length + 2 }})">Total ↕</th>
+      <th onclick="sortTbl('rg-tbl-{{ rg_sid }}',0)">Resource Group ↕</th>
+      <th onclick="sortTbl('rg-tbl-{{ rg_sid }}',1)">Recursos</th>
+      {% for m in rgd.months %}<th onclick="sortTbl('rg-tbl-{{ rg_sid }}',{{ loop.index + 1 }})">{{ m }}</th>{% endfor %}
+      <th class="col-total" onclick="sortTbl('rg-tbl-{{ rg_sid }}',{{ rgd.months|length + 2 }})">Total ↕</th>
     </tr></thead>
     <tbody>
     {% for rg in rgd.rgs %}
-    <tr>
+    <tr data-rg="{{ rg.name }}">
       <td class="rname">{{ rg.name }}</td>
       <td style="color:#6b7280;font-size:.8rem;">{{ rg.count }}</td>
       {% for m in rgd.months %}
       {% set mv = rg.monthly.get(m, 0) %}
-      <td class="{{ heat_class(mv, rgd.max_monthly) }}" data-v="{{ mv }}">
+      <td class="{{ heat_class(mv, rgd.max_monthly) }}" data-v="{{ mv }}" data-month="{{ m }}">
         {% if mv > 0 %}${{ "%.2f"|format(mv) }}{% else %}<span class="cost-zero">—</span>{% endif %}
       </td>
       {% endfor %}
-      <td class="col-total savings" data-v="{{ rg.total }}">${{ "%.2f"|format(rg.total) }}</td>
+      <td class="col-total savings" data-v="{{ rg.total }}" data-col="total">${{ "%.2f"|format(rg.total) }}</td>
     </tr>
     {% endfor %}
-    {# Totals row #}
-    <tr style="border-top:2px solid #e5e7eb;font-weight:700;background:#f0fdf4;">
-      <td>Total Azure</td>
-      <td></td>
-      {% for m in rgd.months %}
-      {% set mv = rgd.monthly_totals.get(m, 0) %}
-      <td class="savings" data-v="{{ mv }}">${{ "%.2f"|format(mv) }}</td>
-      {% endfor %}
-      <td class="col-total savings">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</td>
-    </tr>
     </tbody>
   </table>
   </div>
@@ -275,14 +320,41 @@
 {# ── Monthly evolution ─────────────────────────────────────────────────── #}
 {% if evo.resources %}
 {% set sid = sub.subscription_id %}
+{# Unique RGs for the evolution multi-select #}
+{% set evo_rgs = evo.resources | map(attribute="resource_group") | unique | sort | list %}
 <section>
   <h2>Evolución Mensual por Recurso — {{ sub.subscription_name }}</h2>
   <div class="filter-bar">
     <input type="text" id="evo-q-{{ sid }}"
-           placeholder="Filtrar por nombre, tipo o resource group…"
+           placeholder="Filtrar por nombre o tipo…"
            oninput="evoFilter('{{ sid }}')">
+    <div class="ms-wrap">
+      <div class="ms-trigger" id="evo-trig-{{ sid }}" onclick="msToggle('evo-drop-{{ sid }}')">Todos los Resource Groups ▾</div>
+      <div class="ms-drop" id="evo-drop-{{ sid }}">
+        <label class="all-label"><input type="checkbox" value="__all__" checked onchange="msAllEvo('{{ sid }}')"> Todos</label>
+        {% for rg in evo_rgs %}
+        <label><input type="checkbox" value="{{ rg }}" checked onchange="msChgEvo('{{ sid }}')"> {{ rg }}</label>
+        {% endfor %}
+      </div>
+    </div>
     <span class="row-count" id="evo-n-{{ sid }}">{{ evo.resources|length }} recursos</span>
   </div>
+
+  {# Summary bar #}
+  <div class="tbl-sum" id="evo-sum-{{ sid }}">
+    <span><span class="sum-label">Seleccionados:</span><strong id="evo-sum-n-{{ sid }}">{{ evo.resources|length }}</strong></span>
+    {% set evo_month_totals = namespace(data={}) %}
+    {% for r in evo.resources %}
+      {% for m, v in r.monthly.items() %}
+        {% set evo_month_totals.data = evo_month_totals.data.update({m: evo_month_totals.data.get(m,0)+v}) or evo_month_totals.data %}
+      {% endfor %}
+    {% endfor %}
+    {% for m in evo.months %}
+    <span><span class="sum-label">{{ m }}:</span><strong id="evo-sum-m-{{ sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(evo_month_totals.data.get(m,0)) }}</strong></span>
+    {% endfor %}
+    <span><span class="sum-label">Total:</span><strong id="evo-sum-t-{{ sid }}">${{ "%.2f"|format(evo.resources | map(attribute='total') | sum) }}</strong></span>
+  </div>
+
   <div class="monthly-wrap">
   <table id="evo-{{ sid }}">
     <thead><tr>
@@ -294,17 +366,17 @@
     </tr></thead>
     <tbody>
     {% for r in evo.resources %}
-    <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }} {{ r.resource_group|lower }}">
+    <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }}" data-rg="{{ r.resource_group }}">
       <td class="rname" title="{{ r.resource_id }}">{{ r.name }}</td>
       <td class="rtype">{{ r.type_short }}</td>
       <td class="rtype">{{ r.resource_group }}</td>
       {% for m in evo.months %}
       {% set mv = r.monthly.get(m, 0) %}
-      <td class="{{ heat_class(mv, evo.max_cost) }}" data-v="{{ mv }}">
+      <td class="{{ heat_class(mv, evo.max_cost) }}" data-v="{{ mv }}" data-month="{{ m }}">
         {% if mv > 0 %}${{ "%.2f"|format(mv) }}{% else %}<span class="cost-zero">—</span>{% endif %}
       </td>
       {% endfor %}
-      <td class="col-total savings" data-v="{{ r.total }}">${{ "%.2f"|format(r.total) }}</td>
+      <td class="col-total savings" data-v="{{ r.total }}" data-col="total">${{ "%.2f"|format(r.total) }}</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -417,26 +489,110 @@
 </main>
 
 <script>
-// ── Marketplace filter ────────────────────────────────────────────────────
-function mpFilter(mpSid) {
-  const q = document.getElementById('mp-q-' + mpSid).value.toLowerCase();
-  document.querySelectorAll('#mp-tbl-' + mpSid + ' tbody tr[data-mp-s]').forEach(r => {
-    r.style.display = !q || r.dataset.mpS.includes(q) ? '' : 'none';
+// ── Multi-select helpers ───────────────────────────────────────────────────
+function msToggle(dropId) {
+  const d = document.getElementById(dropId);
+  document.querySelectorAll('.ms-drop.open').forEach(x => { if (x.id !== dropId) x.classList.remove('open'); });
+  d.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-wrap')) document.querySelectorAll('.ms-drop.open').forEach(d => d.classList.remove('open'));
+});
+
+function _msSelected(dropId) {
+  return new Set(Array.from(document.querySelectorAll('#' + dropId + ' input:not([value="__all__"])')).filter(b => b.checked).map(b => b.value));
+}
+function _msSyncAll(dropId, trigId) {
+  const boxes = document.querySelectorAll('#' + dropId + ' input:not([value="__all__"])');
+  const checked = Array.from(boxes).filter(b => b.checked);
+  const allBox = document.querySelector('#' + dropId + ' input[value="__all__"]');
+  allBox.checked = checked.length === boxes.length;
+  allBox.indeterminate = checked.length > 0 && checked.length < boxes.length;
+  const trig = document.getElementById(trigId);
+  if (trig) trig.textContent = checked.length === boxes.length ? 'Todos los Resource Groups ▾'
+    : checked.length === 0 ? 'Sin selección ▾'
+    : checked.length + ' seleccionados ▾';
+}
+function msAllRg(sid) {
+  const allBox = document.querySelector('#rg-drop-' + sid + ' input[value="__all__"]');
+  document.querySelectorAll('#rg-drop-' + sid + ' input:not([value="__all__"])').forEach(b => b.checked = allBox.checked);
+  _msSyncAll('rg-drop-' + sid, 'rg-trig-' + sid);
+  rgFilter(sid);
+}
+function msChgRg(sid) { _msSyncAll('rg-drop-' + sid, 'rg-trig-' + sid); rgFilter(sid); }
+function msAllEvo(sid) {
+  const allBox = document.querySelector('#evo-drop-' + sid + ' input[value="__all__"]');
+  document.querySelectorAll('#evo-drop-' + sid + ' input:not([value="__all__"])').forEach(b => b.checked = allBox.checked);
+  _msSyncAll('evo-drop-' + sid, 'evo-trig-' + sid);
+  evoFilter(sid);
+}
+function msChgEvo(sid) { _msSyncAll('evo-drop-' + sid, 'evo-trig-' + sid); evoFilter(sid); }
+
+// ── Summary recompute ─────────────────────────────────────────────────────
+function _recomputeSum(tableId, sumNId, sumMonthPrefix, sumTId) {
+  const rows = Array.from(document.querySelectorAll('#' + tableId + ' tbody tr[data-rg]')).filter(r => r.style.display !== 'none');
+  const n = document.getElementById(sumNId);
+  if (n) n.textContent = rows.length;
+
+  // Sum by month (cells with data-month attr)
+  const monthSums = {};
+  let total = 0;
+  rows.forEach(r => {
+    r.querySelectorAll('td[data-month]').forEach(td => {
+      const m = td.dataset.month.replace('-', '');
+      monthSums[m] = (monthSums[m] || 0) + (parseFloat(td.dataset.v) || 0);
+    });
+    const tc = r.querySelector('td[data-col="total"]');
+    if (tc) total += parseFloat(tc.dataset.v) || 0;
   });
+
+  Object.entries(monthSums).forEach(([m, v]) => {
+    const el = document.getElementById(sumMonthPrefix + m);
+    if (el) el.textContent = '$' + v.toFixed(2);
+  });
+  const t = document.getElementById(sumTId);
+  if (t) t.textContent = '$' + total.toFixed(2);
 }
 
-// ── Monthly evolution filter ───────────────────────────────────────────────
-function evoFilter(sid) {
-  const q = document.getElementById('evo-q-' + sid).value.toLowerCase();
-  const rows = document.querySelectorAll('#evo-' + sid + ' tbody tr');
+// ── RG table filter ────────────────────────────────────────────────────────
+function rgFilter(sid) {
+  const selected = _msSelected('rg-drop-' + sid);
+  const rows = document.querySelectorAll('#rg-tbl-' + sid + ' tbody tr[data-rg]');
   let n = 0;
   rows.forEach(r => {
-    const show = !q || r.dataset.s.includes(q);
+    const show = selected.size === 0 || selected.has(r.dataset.rg);
+    r.style.display = show ? '' : 'none';
+    if (show) n++;
+  });
+  const rc = document.getElementById('rg-rc-' + sid);
+  if (rc) rc.textContent = n + ' resource groups';
+  _recomputeSum('rg-tbl-' + sid, 'rg-sum-n-' + sid, 'rg-sum-m-' + sid + '-', 'rg-sum-t-' + sid);
+}
+
+// ── Evolution table filter ─────────────────────────────────────────────────
+function evoFilter(sid) {
+  const q = (document.getElementById('evo-q-' + sid)?.value || '').toLowerCase();
+  const selectedRg = _msSelected('evo-drop-' + sid);
+  const rows = document.querySelectorAll('#evo-' + sid + ' tbody tr[data-rg]');
+  let n = 0;
+  rows.forEach(r => {
+    const matchQ  = !q || r.dataset.s.includes(q);
+    const matchRg = selectedRg.size === 0 || selectedRg.has(r.dataset.rg);
+    const show = matchQ && matchRg;
     r.style.display = show ? '' : 'none';
     if (show) n++;
   });
   const el = document.getElementById('evo-n-' + sid);
   if (el) el.textContent = n + ' recursos';
+  _recomputeSum('evo-' + sid, 'evo-sum-n-' + sid, 'evo-sum-m-' + sid + '-', 'evo-sum-t-' + sid);
+}
+
+// ── Marketplace filter ─────────────────────────────────────────────────────
+function mpFilter(mpSid) {
+  const q = document.getElementById('mp-q-' + mpSid).value.toLowerCase();
+  document.querySelectorAll('#mp-tbl-' + mpSid + ' tbody tr[data-mp-s]').forEach(r => {
+    r.style.display = !q || r.dataset.mpS.includes(q) ? '' : 'none';
+  });
 }
 
 // ── Leak category cards ────────────────────────────────────────────────────
@@ -450,7 +606,6 @@ function leakCard(sid, cat) {
   });
   leakFilter(sid);
 }
-
 function leakFilter(sid) {
   const cat  = _activeCat[sid] || '';
   const q    = document.getElementById('lk-q-'  + sid).value.toLowerCase();
@@ -477,6 +632,7 @@ function sortTbl(id, col) {
   const asc = th.dataset.dir !== 'asc';
   th.dataset.dir = asc ? 'asc' : 'desc';
   Array.from(tbody.rows)
+    .filter(r => r.dataset.rg !== undefined || r.dataset.s !== undefined)
     .sort((a, b) => {
       const av = a.cells[col]?.dataset.v ?? a.cells[col]?.textContent.trim() ?? '';
       const bv = b.cells[col]?.dataset.v ?? b.cells[col]?.textContent.trim() ?? '';
