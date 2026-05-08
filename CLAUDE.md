@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A Python CLI tool (`finops`) that queries Azure subscriptions, detects cost leaks, and generates HTML + Markdown reports. Recommendations are written in **Spanish**.
+A Python CLI tool (`finops`) that queries Azure subscriptions, detects cost leaks, and generates HTML, Markdown, and Excel reports. Recommendations are written in **Spanish**.
 
 ## Setup
 
@@ -65,7 +65,7 @@ InvoiceCollector   →  list[Invoice]         ─┘
                                                ↓ (all subs)
                                            Report
                                                ↓
-                            report.html + report.md + data.json
+                report.html + report.md + report.xlsx + data.json
 ```
 
 **Key invariants:**
