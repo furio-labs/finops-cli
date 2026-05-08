@@ -91,14 +91,12 @@
   .ms-drop label:hover { background: #f9fafb; }
   .ms-drop label.all-label { font-weight: 600; border-bottom: 1px solid #f3f4f6; padding-bottom: .45rem; margin-bottom: .2rem; }
 
-  /* Table summary bar */
-  .tbl-sum {
-    display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center;
-    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
-    padding: .55rem 1rem; margin-bottom: .75rem; font-size: .81rem; color: #374151;
+  /* Summary row inside thead */
+  .sum-row td, .sum-row th {
+    background: #f0fdf4 !important; color: #059669; font-weight: 700;
+    font-size: .8rem; border-bottom: 2px solid #bbf7d0; white-space: nowrap;
   }
-  .tbl-sum strong { color: #059669; }
-  .tbl-sum .sum-label { color: #6b7280; font-weight: 600; margin-right: .25rem; }
+  .sum-row td:first-child { color: #374151; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -203,23 +201,24 @@
     <span class="row-count" id="rg-rc-{{ rg_sid }}">{{ rgd.rgs|length }} resource groups</span>
   </div>
 
-  {# Summary bar #}
-  <div class="tbl-sum" id="rg-sum-{{ rg_sid }}">
-    <span><span class="sum-label">Seleccionados:</span><strong id="rg-sum-n-{{ rg_sid }}">{{ rgd.rgs|length }}</strong></span>
-    {% for m in rgd.months %}
-    <span><span class="sum-label">{{ m }}:</span><strong id="rg-sum-m-{{ rg_sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(rgd.monthly_totals.get(m, 0)) }}</strong></span>
-    {% endfor %}
-    <span><span class="sum-label">Total:</span><strong id="rg-sum-t-{{ rg_sid }}">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</strong></span>
-  </div>
-
   <div class="monthly-wrap">
   <table id="rg-tbl-{{ rg_sid }}">
-    <thead><tr>
+    <thead>
+    <tr>
       <th onclick="sortTbl('rg-tbl-{{ rg_sid }}',0)">Resource Group ↕</th>
       <th onclick="sortTbl('rg-tbl-{{ rg_sid }}',1)">Recursos</th>
       {% for m in rgd.months %}<th onclick="sortTbl('rg-tbl-{{ rg_sid }}',{{ loop.index + 1 }})">{{ m }}</th>{% endfor %}
       <th class="col-total" onclick="sortTbl('rg-tbl-{{ rg_sid }}',{{ rgd.months|length + 2 }})">Total ↕</th>
-    </tr></thead>
+    </tr>
+    <tr class="sum-row">
+      <td id="rg-sum-n-{{ rg_sid }}">{{ rgd.rgs|length }} seleccionados</td>
+      <td></td>
+      {% for m in rgd.months %}
+      <td id="rg-sum-m-{{ rg_sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(rgd.monthly_totals.get(m, 0)) }}</td>
+      {% endfor %}
+      <td id="rg-sum-t-{{ rg_sid }}">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</td>
+    </tr>
+    </thead>
     <tbody>
     {% for rg in rgd.rgs %}
     <tr data-rg="{{ rg.name }}">
@@ -340,30 +339,34 @@
     <span class="row-count" id="evo-n-{{ sid }}">{{ evo.resources|length }} recursos</span>
   </div>
 
-  {# Summary bar #}
-  <div class="tbl-sum" id="evo-sum-{{ sid }}">
-    <span><span class="sum-label">Seleccionados:</span><strong id="evo-sum-n-{{ sid }}">{{ evo.resources|length }}</strong></span>
-    {% set evo_month_totals = namespace(data={}) %}
-    {% for r in evo.resources %}
-      {% for m, v in r.monthly.items() %}
-        {% set evo_month_totals.data = evo_month_totals.data.update({m: evo_month_totals.data.get(m,0)+v}) or evo_month_totals.data %}
-      {% endfor %}
+  {# Pre-compute evo monthly totals in Jinja for initial render #}
+  {% set evo_mt = namespace(data={}) %}
+  {% for r in evo.resources %}
+    {% for m, v in r.monthly.items() %}
+      {% set evo_mt.data = evo_mt.data.update({m: evo_mt.data.get(m,0)+v}) or evo_mt.data %}
     {% endfor %}
-    {% for m in evo.months %}
-    <span><span class="sum-label">{{ m }}:</span><strong id="evo-sum-m-{{ sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(evo_month_totals.data.get(m,0)) }}</strong></span>
-    {% endfor %}
-    <span><span class="sum-label">Total:</span><strong id="evo-sum-t-{{ sid }}">${{ "%.2f"|format(evo.resources | map(attribute='total') | sum) }}</strong></span>
-  </div>
+  {% endfor %}
 
   <div class="monthly-wrap">
   <table id="evo-{{ sid }}">
-    <thead><tr>
+    <thead>
+    <tr>
       <th onclick="sortTbl('evo-{{ sid }}',0)">Recurso ↕</th>
       <th onclick="sortTbl('evo-{{ sid }}',1)">Tipo</th>
       <th onclick="sortTbl('evo-{{ sid }}',2)">Resource Group</th>
       {% for m in evo.months %}<th onclick="sortTbl('evo-{{ sid }}',{{ loop.index + 2 }})">{{ m }}</th>{% endfor %}
       <th class="col-total" onclick="sortTbl('evo-{{ sid }}',{{ evo.months|length + 3 }})">Total ↕</th>
-    </tr></thead>
+    </tr>
+    <tr class="sum-row">
+      <td id="evo-sum-n-{{ sid }}">{{ evo.resources|length }} seleccionados</td>
+      <td></td>
+      <td></td>
+      {% for m in evo.months %}
+      <td id="evo-sum-m-{{ sid }}-{{ m|replace('-','') }}">${{ "%.2f"|format(evo_mt.data.get(m,0)) }}</td>
+      {% endfor %}
+      <td id="evo-sum-t-{{ sid }}">${{ "%.2f"|format(evo.resources | map(attribute='total') | sum) }}</td>
+    </tr>
+    </thead>
     <tbody>
     {% for r in evo.resources %}
     <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }}" data-rg="{{ r.resource_group }}">
@@ -532,7 +535,7 @@ function msChgEvo(sid) { _msSyncAll('evo-drop-' + sid, 'evo-trig-' + sid); evoFi
 function _recomputeSum(tableId, sumNId, sumMonthPrefix, sumTId) {
   const rows = Array.from(document.querySelectorAll('#' + tableId + ' tbody tr[data-rg]')).filter(r => r.style.display !== 'none');
   const n = document.getElementById(sumNId);
-  if (n) n.textContent = rows.length;
+  if (n) n.textContent = rows.length + ' seleccionados';
 
   // Sum by month (cells with data-month attr)
   const monthSums = {};
