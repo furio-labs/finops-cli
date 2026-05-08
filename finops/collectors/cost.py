@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import time
 from datetime import date
 import urllib.request
 import urllib.error
@@ -7,6 +8,7 @@ from finops.models import ResourceCost
 
 _API_VERSION = "2023-11-01"
 _BASE_URL = "https://management.azure.com"
+_MAX_RETRIES = 5
 
 
 def _parse_date(usage_date_int: int) -> str:
@@ -18,6 +20,20 @@ def _get_token(credential) -> str:
     return credential.get_token("https://management.azure.com/.default").token
 
 
+def _request_with_retry(req: urllib.request.Request) -> dict:
+    for attempt in range(_MAX_RETRIES):
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < _MAX_RETRIES - 1:
+                wait = int(exc.headers.get("Retry-After", 5 * (2 ** attempt)))
+                time.sleep(wait)
+                continue
+            msg = exc.read().decode(errors="replace")
+            raise RuntimeError(f"Cost Management API {exc.code}: {msg}") from exc
+
+
 def _post(url: str, body: dict, token: str) -> dict:
     req = urllib.request.Request(
         url,
@@ -25,12 +41,7 @@ def _post(url: str, body: dict, token: str) -> dict:
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        msg = exc.read().decode(errors="replace")
-        raise RuntimeError(f"Cost Management API {exc.code}: {msg}") from exc
+    return _request_with_retry(req)
 
 
 def _get(url: str, token: str) -> dict:
@@ -39,12 +50,7 @@ def _get(url: str, token: str) -> dict:
         headers={"Authorization": f"Bearer {token}"},
         method="GET",
     )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        msg = exc.read().decode(errors="replace")
-        raise RuntimeError(f"Cost Management API {exc.code}: {msg}") from exc
+    return _request_with_retry(req)
 
 
 class CostCollector:
