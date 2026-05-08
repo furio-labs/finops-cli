@@ -1,12 +1,12 @@
 from __future__ import annotations
+import json
 from datetime import date
-from azure.mgmt.costmanagement import CostManagementClient
-from azure.mgmt.costmanagement.models import (
-    QueryDefinition, QueryTimePeriod, QueryDataset,
-    QueryAggregation, QueryGrouping,
-)
+import urllib.request
+import urllib.error
 from finops.models import ResourceCost
-from finops.collectors.base import retry_on_throttle
+
+_API_VERSION = "2023-11-01"
+_BASE_URL = "https://management.azure.com"
 
 
 def _parse_date(usage_date_int: int) -> str:
@@ -14,62 +14,109 @@ def _parse_date(usage_date_int: int) -> str:
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
 
 
+def _get_token(credential) -> str:
+    return credential.get_token("https://management.azure.com/.default").token
+
+
+def _post(url: str, body: dict, token: str) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        msg = exc.read().decode(errors="replace")
+        raise RuntimeError(f"Cost Management API {exc.code}: {msg}") from exc
+
+
+def _get(url: str, token: str) -> dict:
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        msg = exc.read().decode(errors="replace")
+        raise RuntimeError(f"Cost Management API {exc.code}: {msg}") from exc
+
+
 class CostCollector:
     def __init__(self, credential) -> None:
         self._credential = credential
 
     def collect(self, subscription_id: str, start_date: date, end_date: date) -> list[ResourceCost]:
-        client = CostManagementClient(self._credential)
-        scope = f"/subscriptions/{subscription_id}"
-
-        query = QueryDefinition(
-            type="ActualCost",
-            timeframe="Custom",
-            time_period=QueryTimePeriod(
-                from_property=start_date,
-                to=end_date,
-            ),
-            dataset=QueryDataset(
-                granularity="Daily",
-                aggregation={"totalCost": QueryAggregation(name="Cost", function="Sum")},
-                grouping=[
-                    QueryGrouping(type="Dimension", name="ResourceId"),
-                    QueryGrouping(type="Dimension", name="ResourceGroupName"),
-                    QueryGrouping(type="Dimension", name="ResourceType"),
-                ],
-            ),
+        token = _get_token(self._credential)
+        url = (
+            f"{_BASE_URL}/subscriptions/{subscription_id}"
+            f"/providers/Microsoft.CostManagement/query?api-version={_API_VERSION}"
         )
+        body = {
+            "type": "ActualCost",
+            "timeframe": "Custom",
+            "timePeriod": {"from": start_date.isoformat(), "to": end_date.isoformat()},
+            "dataset": {
+                "granularity": "Daily",
+                "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
+                "grouping": [
+                    {"type": "Dimension", "name": "ResourceId"},
+                    {"type": "Dimension", "name": "ResourceGroupName"},
+                    {"type": "Dimension", "name": "ResourceType"},
+                ],
+            },
+        }
 
-        result = retry_on_throttle(lambda: client.query.usage(scope=scope, parameters=query))
+        costs: dict[str, ResourceCost] = {}
+        col_index: dict[str, int] = {}
+        next_link: str | None = None
 
-        col_index = {col.name: i for i, col in enumerate(result.columns)}
+        # First page — POST
+        data = _post(url, body, token)
+        props = data["properties"]
+
+        col_index = {c["name"]: i for i, c in enumerate(props["columns"])}
         required = {"Cost", "UsageDate", "ResourceId", "ResourceGroupName", "ResourceType"}
         missing = required - col_index.keys()
         if missing:
-            actual = list(col_index.keys())
             raise RuntimeError(
-                f"Azure Cost Management returned unexpected columns. "
-                f"Missing: {missing}. Got: {actual}"
+                f"Unexpected Cost Management columns. Missing: {missing}. "
+                f"Got: {list(col_index)}"
             )
-        cost_idx = col_index["Cost"]
-        date_idx = col_index["UsageDate"]
-        rid_idx = col_index["ResourceId"]
-        rg_idx = col_index["ResourceGroupName"]
-        rtype_idx = col_index["ResourceType"]
 
-        costs: dict[str, ResourceCost] = {}
-        for row in result.rows:
-            rid = row[rid_idx]
-            day = _parse_date(int(row[date_idx]))
-            cost = float(row[cost_idx])
-            if rid not in costs:
-                costs[rid] = ResourceCost(
-                    resource_id=rid,
-                    resource_group=row[rg_idx],
-                    subscription_id=subscription_id,
-                    resource_type=row[rtype_idx],
-                    daily_costs={},
-                )
-            costs[rid].daily_costs[day] = costs[rid].daily_costs.get(day, 0.0) + cost
+        def _ingest(rows: list) -> None:
+            ci, di, ri, rgi, rti = (
+                col_index["Cost"], col_index["UsageDate"],
+                col_index["ResourceId"], col_index["ResourceGroupName"],
+                col_index["ResourceType"],
+            )
+            for row in rows:
+                rid = row[ri]
+                day = _parse_date(int(row[di]))
+                cost = float(row[ci])
+                if rid not in costs:
+                    costs[rid] = ResourceCost(
+                        resource_id=rid,
+                        resource_group=row[rgi],
+                        subscription_id=subscription_id,
+                        resource_type=row[rti],
+                        daily_costs={},
+                    )
+                costs[rid].daily_costs[day] = costs[rid].daily_costs.get(day, 0.0) + cost
+
+        _ingest(props["rows"])
+        next_link = props.get("nextLink")
+
+        # Subsequent pages — GET via nextLink
+        while next_link:
+            data = _get(next_link, token)
+            props = data["properties"]
+            _ingest(props["rows"])
+            next_link = props.get("nextLink")
 
         return list(costs.values())

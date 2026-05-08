@@ -34,38 +34,87 @@ def test_retry_on_throttle_raises_after_max_retries():
             retry_on_throttle(fn, max_retries=3)
 
 
-def _make_query_result(rows, columns=None):
-    if columns is None:
-        columns = ["Cost", "UsageDate", "ResourceId", "ResourceGroupName", "ResourceType", "Currency"]
-    result = MagicMock()
-    result.columns = [MagicMock() for _ in columns]
-    for i, col in enumerate(result.columns):
-        col.name = columns[i]
-    result.rows = rows
-    return result
+import json
+import urllib.error
+from finops.collectors.cost import _parse_date
+
+
+def _make_api_response(rows, next_link=None):
+    columns = [
+        {"name": "Cost", "type": "Number"},
+        {"name": "UsageDate", "type": "Number"},
+        {"name": "ResourceId", "type": "String"},
+        {"name": "ResourceGroupName", "type": "String"},
+        {"name": "ResourceType", "type": "String"},
+        {"name": "Currency", "type": "String"},
+    ]
+    return json.dumps({
+        "properties": {
+            "columns": columns,
+            "rows": rows,
+            "nextLink": next_link,
+        }
+    }).encode()
+
+
+def test_parse_date():
+    assert _parse_date(20260501) == "2026-05-01"
+    assert _parse_date(20260101) == "2026-01-01"
 
 
 def test_cost_collector_returns_resource_costs(mocker):
-    mock_client = MagicMock()
-    mocker.patch("finops.collectors.cost.CostManagementClient", return_value=mock_client)
-    mock_client.query.usage.return_value = _make_query_result([
+    rows = [
         [10.0, 20260501, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines", "USD"],
         [5.0,  20260502, "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1", "rg-prod", "microsoft.compute/virtualmachines", "USD"],
-    ])
-    collector = CostCollector(credential=MagicMock())
-    results = collector.collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
+    ]
+    mock_cred = MagicMock()
+    mock_cred.get_token.return_value.token = "fake-token"
+
+    mocker.patch("finops.collectors.cost._post", return_value={
+        "properties": {
+            "columns": [
+                {"name": "Cost"}, {"name": "UsageDate"}, {"name": "ResourceId"},
+                {"name": "ResourceGroupName"}, {"name": "ResourceType"}, {"name": "Currency"},
+            ],
+            "rows": rows,
+            "nextLink": None,
+        }
+    })
+
+    results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
     assert len(results) == 1
     assert results[0].resource_id == "/subscriptions/sub1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1"
     assert results[0].daily_costs == {"2026-05-01": 10.0, "2026-05-02": 5.0}
     assert results[0].total_cost == 15.0
 
 
-def test_cost_collector_403_raises_http_error(mocker):
-    mock_client = MagicMock()
-    mocker.patch("finops.collectors.cost.CostManagementClient", return_value=mock_client)
-    error = HttpResponseError(message="Forbidden")
-    error.status_code = 403
-    mock_client.query.usage.side_effect = error
-    collector = CostCollector(credential=MagicMock())
-    with pytest.raises(HttpResponseError):
-        collector.collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
+def test_cost_collector_follows_next_link(mocker):
+    rid = "/subscriptions/sub1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1"
+    page1_rows = [[3.0, 20260501, rid, "rg", "microsoft.compute/virtualmachines", "USD"]]
+    page2_rows = [[7.0, 20260502, rid, "rg", "microsoft.compute/virtualmachines", "USD"]]
+    columns = [
+        {"name": "Cost"}, {"name": "UsageDate"}, {"name": "ResourceId"},
+        {"name": "ResourceGroupName"}, {"name": "ResourceType"}, {"name": "Currency"},
+    ]
+    mock_cred = MagicMock()
+    mock_cred.get_token.return_value.token = "fake-token"
+
+    mock_post = mocker.patch("finops.collectors.cost._post", return_value={
+        "properties": {"columns": columns, "rows": page1_rows, "nextLink": "https://next-page"}
+    })
+    mock_get = mocker.patch("finops.collectors.cost._get", return_value={
+        "properties": {"columns": columns, "rows": page2_rows, "nextLink": None}
+    })
+
+    results = CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
+    assert len(results) == 1
+    assert results[0].total_cost == pytest.approx(10.0)
+    mock_get.assert_called_once_with("https://next-page", "fake-token")
+
+
+def test_cost_collector_raises_on_api_error(mocker):
+    mock_cred = MagicMock()
+    mock_cred.get_token.return_value.token = "fake-token"
+    mocker.patch("finops.collectors.cost._post", side_effect=RuntimeError("Cost Management API 403: Forbidden"))
+    with pytest.raises(RuntimeError, match="403"):
+        CostCollector(credential=mock_cred).collect("sub1", date(2026, 5, 1), date(2026, 5, 2))
