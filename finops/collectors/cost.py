@@ -21,7 +21,8 @@ def _date_chunks(start: date, end: date) -> list[tuple[date, date]]:
 
 _API_VERSION = "2023-11-01"
 _BASE_URL = "https://management.azure.com"
-_MAX_RETRIES = 5
+_MAX_RETRIES = 8
+_PAGE_DELAY = 2  # seconds between pagination requests to avoid rate limits
 
 
 def _parse_date(usage_date_int: int) -> str:
@@ -33,6 +34,18 @@ def _get_token(credential) -> str:
     return credential.get_token("https://management.azure.com/.default").token
 
 
+def _retry_wait(exc: urllib.error.HTTPError, attempt: int) -> int:
+    """Return seconds to wait before retrying a 429 response."""
+    header = exc.headers.get("Retry-After") or exc.headers.get("retry-after")
+    if header:
+        try:
+            return max(int(header), 1)
+        except ValueError:
+            pass
+    # Exponential backoff starting at 30s: 30, 60, 120, 240, 480 …
+    return 30 * (2 ** attempt)
+
+
 def _request_with_retry(req: urllib.request.Request) -> dict:
     for attempt in range(_MAX_RETRIES):
         try:
@@ -40,7 +53,7 @@ def _request_with_retry(req: urllib.request.Request) -> dict:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt < _MAX_RETRIES - 1:
-                wait = int(exc.headers.get("Retry-After", 5 * (2 ** attempt)))
+                wait = _retry_wait(exc, attempt)
                 time.sleep(wait)
                 continue
             msg = exc.read().decode(errors="replace")
@@ -145,6 +158,7 @@ class CostCollector:
 
         # Subsequent pages — POST to nextLink with same body (skiptoken embedded in URL)
         while next_link:
+            time.sleep(_PAGE_DELAY)
             data = _post(next_link, body, token)
             props = data["properties"]
             _ingest(props["rows"])
