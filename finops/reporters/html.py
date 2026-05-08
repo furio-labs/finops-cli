@@ -1,10 +1,70 @@
 from __future__ import annotations
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
-from finops.models import SubscriptionData
+from finops.models import SubscriptionData, ResourceCost
 from finops.reporters.models import Report
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+def _parse_service_name(cost: ResourceCost) -> str:
+    """Extract a human-readable name from a marketplace resource ID.
+
+    ARM marketplace SaaS IDs look like:
+      .../providers/microsoft.saas/resources/{name}-{uuid}-{uuid}
+    We stop at the first all-hex segment (>= 8 chars) to get {name}.
+    Falls back to service_name or resource_type if parsing yields nothing.
+    """
+    basename = cost.resource_id.split("/")[-1]
+    parts = basename.split("-")
+    name_parts = []
+    for p in parts:
+        if len(p) >= 8 and all(c in "0123456789abcdef" for c in p.lower()):
+            break
+        name_parts.append(p)
+    name = "-".join(name_parts).strip("-") if name_parts else ""
+    return name or cost.service_name or cost.resource_type.split("/")[-1]
+
+
+def _marketplace_section(sub: SubscriptionData) -> dict | None:
+    mp_costs = [c for c in sub.costs if c.publisher_type.lower() == "marketplace"]
+    if not mp_costs:
+        return None
+
+    months = sorted({day[:7] for c in mp_costs for day in c.daily_costs})
+    total_all = sum(c.total_cost for c in sub.costs) or 1.0
+
+    items = []
+    for c in sorted(mp_costs, key=lambda x: x.total_cost, reverse=True):
+        monthly: dict[str, float] = {}
+        for day, amt in c.daily_costs.items():
+            m = day[:7]
+            monthly[m] = monthly.get(m, 0.0) + amt
+
+        items.append({
+            "name": _parse_service_name(c),
+            "resource_id": c.resource_id,
+            "resource_type": c.resource_type,
+            "resource_group": c.resource_group,
+            "service_name": c.service_name,
+            "monthly": monthly,
+            "total": c.total_cost,
+            "pct_of_sub": c.total_cost / total_all * 100,
+        })
+
+    mp_total = sum(i["total"] for i in items)
+    monthly_totals: dict[str, float] = {}
+    for i in items:
+        for m, v in i["monthly"].items():
+            monthly_totals[m] = monthly_totals.get(m, 0.0) + v
+
+    return {
+        "entries": items,
+        "months": months,
+        "monthly_totals": monthly_totals,
+        "total": mp_total,
+        "pct_of_sub": mp_total / total_all * 100,
+    }
 
 
 def _monthly_evolution(sub: SubscriptionData) -> dict:
@@ -87,4 +147,14 @@ class HtmlReporter:
             for sub in report.subscriptions
             if not sub.skipped
         }
-        return template.render(report=report, evolution=evolution, leaks=leaks)
+        marketplace = {
+            sub.subscription_id: _marketplace_section(sub)
+            for sub in report.subscriptions
+            if not sub.skipped
+        }
+        return template.render(
+            report=report,
+            evolution=evolution,
+            leaks=leaks,
+            marketplace=marketplace,
+        )

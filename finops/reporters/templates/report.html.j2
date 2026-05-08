@@ -176,6 +176,83 @@
 </section>
 {% endif %}
 
+{# ── Marketplace detail ────────────────────────────────────────────────── #}
+{% set mp = marketplace.get(sub.subscription_id) %}
+{% if mp %}
+{% set mp_sid = sub.subscription_id ~ "-mp" %}
+<section style="border-left:4px solid #a855f7;">
+  <h2>Costos Marketplace — {{ sub.subscription_name }}</h2>
+
+  {# Summary bar #}
+  <div style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <div>
+      <span style="font-size:1.8rem;font-weight:700;color:#581c87">${{ "%.2f"|format(mp.total) }}</span>
+      <span style="font-size:.82rem;color:#6b21a8;margin-left:.5rem;">total Marketplace</span>
+    </div>
+    <div style="font-size:.85rem;color:#6b7280;">
+      {{ "%.1f"|format(mp.pct_of_sub) }}% del gasto total de la suscripción
+    </div>
+    <div style="margin-left:auto;">
+      <input type="text" id="mp-q-{{ mp_sid }}"
+             placeholder="Filtrar…"
+             oninput="mpFilter('{{ mp_sid }}')"
+             style="padding:.35rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem;">
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+  <table id="mp-tbl-{{ mp_sid }}">
+    <thead><tr>
+      <th onclick="sortTbl('mp-tbl-{{ mp_sid }}',0)">Servicio ↕</th>
+      <th>Tipo</th>
+      <th>Resource Group</th>
+      <th>Resource ID</th>
+      {% for m in mp.months %}<th onclick="sortTbl('mp-tbl-{{ mp_sid }}',{{ loop.index + 3 }})">{{ m }}</th>{% endfor %}
+      <th onclick="sortTbl('mp-tbl-{{ mp_sid }}',{{ mp.months|length + 4 }})" style="background:#faf5ff;">Total ↕</th>
+      <th style="background:#faf5ff;">% Suscripción</th>
+    </tr></thead>
+    <tbody>
+    {% for item in mp.entries %}
+    <tr data-mp-s="{{ item.name|lower }} {{ item.service_name|lower }} {{ item.resource_group|lower }}">
+      <td style="font-weight:600;min-width:160px;">
+        {{ item.name }}
+        <span class="mp-badge">MP</span>
+      </td>
+      <td class="rtype">{{ item.resource_type.split("/")[-1] }}</td>
+      <td class="rtype">{{ item.resource_group or "—" }}</td>
+      <td class="rtype" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ item.resource_id }}">
+        {{ item.resource_id.split("/")[-1] }}
+      </td>
+      {% for m in mp.months %}
+      {% set mv = item.monthly.get(m, 0) %}
+      <td data-v="{{ mv }}" style="{% if mv > 0 %}color:#581c87;font-weight:600{% else %}color:#d1d5db{% endif %}">
+        {% if mv > 0 %}${{ "%.2f"|format(mv) }}{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+      <td data-v="{{ item.total }}" style="background:#faf5ff;font-weight:700;color:#581c87">
+        ${{ "%.2f"|format(item.total) }}
+      </td>
+      <td style="background:#faf5ff;color:#6b7280;font-size:.8rem;">
+        {{ "%.1f"|format(item.pct_of_sub) }}%
+      </td>
+    </tr>
+    {% endfor %}
+    {# Totals row #}
+    <tr style="border-top:2px solid #e5e7eb;font-weight:700;background:#faf5ff;">
+      <td colspan="4" style="color:#581c87;">Total Marketplace</td>
+      {% for m in mp.months %}
+      {% set mv = mp.monthly_totals.get(m, 0) %}
+      <td style="color:#581c87;">${{ "%.2f"|format(mv) }}</td>
+      {% endfor %}
+      <td style="color:#581c87;">${{ "%.2f"|format(mp.total) }}</td>
+      <td style="color:#6b7280;">{{ "%.1f"|format(mp.pct_of_sub) }}%</td>
+    </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
 {# ── Monthly evolution ─────────────────────────────────────────────────── #}
 {% if evo.resources %}
 {% set sid = sub.subscription_id %}
@@ -321,6 +398,14 @@
 </main>
 
 <script>
+// ── Marketplace filter ────────────────────────────────────────────────────
+function mpFilter(mpSid) {
+  const q = document.getElementById('mp-q-' + mpSid).value.toLowerCase();
+  document.querySelectorAll('#mp-tbl-' + mpSid + ' tbody tr[data-mp-s]').forEach(r => {
+    r.style.display = !q || r.dataset.mpS.includes(q) ? '' : 'none';
+  });
+}
+
 // ── Monthly evolution filter ───────────────────────────────────────────────
 function evoFilter(sid) {
   const q = document.getElementById('evo-q-' + sid).value.toLowerCase();
