@@ -8,12 +8,10 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 def _parse_service_name(cost: ResourceCost) -> str:
-    """Extract a human-readable name from a marketplace resource ID.
+    """Extract human-readable name from a marketplace resource ID.
 
-    ARM marketplace SaaS IDs look like:
-      .../providers/microsoft.saas/resources/{name}-{uuid}-{uuid}
-    We stop at the first all-hex segment (>= 8 chars) to get {name}.
-    Falls back to service_name or resource_type if parsing yields nothing.
+    ARM marketplace SaaS IDs: .../providers/microsoft.saas/resources/{name}-{uuid}-{uuid}
+    Stop at the first all-hex segment (>= 8 chars) to get {name}.
     """
     basename = cost.resource_id.split("/")[-1]
     parts = basename.split("-")
@@ -26,22 +24,68 @@ def _parse_service_name(cost: ResourceCost) -> str:
     return name or cost.service_name or cost.resource_type.split("/")[-1]
 
 
+def _build_monthly(costs: list[ResourceCost]) -> tuple[list[str], dict[str, float]]:
+    """Return (sorted_months, {month -> total_cost}) for a list of ResourceCost objects."""
+    monthly: dict[str, float] = {}
+    for c in costs:
+        for day, amt in c.daily_costs.items():
+            m = day[:7]
+            monthly[m] = monthly.get(m, 0.0) + amt
+    return sorted(monthly), monthly
+
+
+def _rg_monthly(sub: SubscriptionData) -> dict:
+    """Pre-compute per-resource-group monthly costs (Azure-only, excludes marketplace)."""
+    azure_costs = [c for c in sub.costs if c.publisher_type.lower() != "marketplace"]
+    months, _ = _build_monthly(azure_costs)
+
+    rg_map: dict[str, dict] = {}
+    for c in azure_costs:
+        rg = c.resource_group or "(sin grupo)"
+        if rg not in rg_map:
+            rg_map[rg] = {"monthly": {}, "total": 0.0, "count": 0}
+        rg_map[rg]["count"] += 1
+        for day, amt in c.daily_costs.items():
+            m = day[:7]
+            rg_map[rg]["monthly"][m] = rg_map[rg]["monthly"].get(m, 0.0) + amt
+            rg_map[rg]["total"] += amt
+
+    rgs = sorted(
+        [{"name": k, **v} for k, v in rg_map.items()],
+        key=lambda x: x["total"],
+        reverse=True,
+    )
+
+    monthly_totals: dict[str, float] = {}
+    for rg in rgs:
+        for m, v in rg["monthly"].items():
+            monthly_totals[m] = monthly_totals.get(m, 0.0) + v
+
+    max_monthly = max(monthly_totals.values(), default=0.01)
+
+    return {
+        "months": months,
+        "rgs": rgs,
+        "monthly_totals": monthly_totals,
+        "max_monthly": max_monthly,
+    }
+
+
 def _marketplace_section(sub: SubscriptionData) -> dict | None:
     mp_costs = [c for c in sub.costs if c.publisher_type.lower() == "marketplace"]
     if not mp_costs:
         return None
 
-    months = sorted({day[:7] for c in mp_costs for day in c.daily_costs})
+    months, _ = _build_monthly(mp_costs)
     total_all = sum(c.total_cost for c in sub.costs) or 1.0
 
-    items = []
+    entries = []
     for c in sorted(mp_costs, key=lambda x: x.total_cost, reverse=True):
         monthly: dict[str, float] = {}
         for day, amt in c.daily_costs.items():
             m = day[:7]
             monthly[m] = monthly.get(m, 0.0) + amt
-
-        items.append({
+        entries.append({
             "name": _parse_service_name(c),
             "resource_id": c.resource_id,
             "resource_type": c.resource_type,
@@ -52,14 +96,14 @@ def _marketplace_section(sub: SubscriptionData) -> dict | None:
             "pct_of_sub": c.total_cost / total_all * 100,
         })
 
-    mp_total = sum(i["total"] for i in items)
+    mp_total = sum(e["total"] for e in entries)
     monthly_totals: dict[str, float] = {}
-    for i in items:
-        for m, v in i["monthly"].items():
+    for e in entries:
+        for m, v in e["monthly"].items():
             monthly_totals[m] = monthly_totals.get(m, 0.0) + v
 
     return {
-        "entries": items,
+        "entries": entries,
         "months": months,
         "monthly_totals": monthly_totals,
         "total": mp_total,
@@ -68,24 +112,25 @@ def _marketplace_section(sub: SubscriptionData) -> dict | None:
 
 
 def _monthly_evolution(sub: SubscriptionData) -> dict:
-    months = sorted({day[:7] for c in sub.costs for day in c.daily_costs})
+    """Azure-only monthly evolution — marketplace resources excluded (they have their own section)."""
+    azure_costs = [c for c in sub.costs if c.publisher_type.lower() != "marketplace"]
+    months, _ = _build_monthly(azure_costs)
+
     resources = []
-    for c in sorted(sub.costs, key=lambda x: x.total_cost, reverse=True):
+    for c in sorted(azure_costs, key=lambda x: x.total_cost, reverse=True):
         monthly: dict[str, float] = {}
         for day, amt in c.daily_costs.items():
             m = day[:7]
             monthly[m] = monthly.get(m, 0.0) + amt
-        is_mp = c.publisher_type.lower() == "marketplace"
-        name = (c.service_name or c.resource_id.split("/")[-1]) if is_mp else c.resource_id.split("/")[-1]
         resources.append({
             "resource_id": c.resource_id,
-            "name": name,
-            "type_short": c.service_name if is_mp else c.resource_type.split("/")[-1],
+            "name": c.resource_id.split("/")[-1],
+            "type_short": c.resource_type.split("/")[-1],
             "resource_group": c.resource_group,
             "monthly": monthly,
             "total": c.total_cost,
-            "is_marketplace": is_mp,
         })
+
     max_cost = max((r["total"] for r in resources), default=0.01)
     marketplace_total = sum(c.total_cost for c in sub.costs if c.publisher_type.lower() == "marketplace")
     return {
@@ -152,9 +197,15 @@ class HtmlReporter:
             for sub in report.subscriptions
             if not sub.skipped
         }
+        rg_data = {
+            sub.subscription_id: _rg_monthly(sub)
+            for sub in report.subscriptions
+            if not sub.skipped
+        }
         return template.render(
             report=report,
             evolution=evolution,
             leaks=leaks,
             marketplace=marketplace,
+            rg_data=rg_data,
         )

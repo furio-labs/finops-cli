@@ -21,7 +21,7 @@
   .HIGH     { background: #fef3c7; color: #92400e; }
   .MEDIUM   { background: #e0f2fe; color: #075985; }
   .INFO     { background: #f0fdf4; color: #166534; }
-  main { max-width: 1300px; margin: 2rem auto; padding: 0 1rem; }
+  main { max-width: 100%; margin: 0; padding: 1rem 1.5rem; }
   section { background: #fff; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #1e3a5f; border-bottom: 2px solid #e5e7eb; padding-bottom: .5rem; }
   h3 { font-size: .9rem; margin: 1.25rem 0 .5rem; color: #374151; font-weight: 600; }
@@ -137,42 +137,61 @@
 </section>
 {% endif %}
 
-{# ── Cost by resource group ────────────────────────────────────────────── #}
-{% if sub.costs %}
+{# ── Cost by resource group (with monthly evolution) ─────────────────────── #}
+{% set rgd = rg_data.get(sub.subscription_id, {"months":[], "rgs":[], "monthly_totals":{}, "max_monthly":1}) %}
+{% if rgd.rgs %}
 <section>
   <h2>Costos por Resource Group — {{ sub.subscription_name }}</h2>
 
-  {# Azure vs Marketplace split #}
+  {# Azure vs Marketplace split badges #}
   {% if evo.marketplace_total > 0 %}
   <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
-    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:.75rem 1.25rem;">
-      <span style="font-size:.78rem;color:#0369a1;font-weight:600;">Azure Native</span>
-      <span style="display:block;font-size:1.2rem;font-weight:700;color:#0c4a6e">${{ "%.2f"|format(evo.azure_total) }}</span>
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:.6rem 1.1rem;">
+      <span style="font-size:.75rem;color:#0369a1;font-weight:600;">Azure Native</span>
+      <span style="display:block;font-size:1.1rem;font-weight:700;color:#0c4a6e">${{ "%.2f"|format(evo.azure_total) }}</span>
     </div>
-    <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:.75rem 1.25rem;">
-      <span style="font-size:.78rem;color:#6b21a8;font-weight:600;">Marketplace <span class="mp-badge">MP</span></span>
-      <span style="display:block;font-size:1.2rem;font-weight:700;color:#581c87">${{ "%.2f"|format(evo.marketplace_total) }}</span>
+    <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:.6rem 1.1rem;">
+      <span style="font-size:.75rem;color:#6b21a8;font-weight:600;">Marketplace <span class="mp-badge">MP</span></span>
+      <span style="display:block;font-size:1.1rem;font-weight:700;color:#581c87">${{ "%.2f"|format(evo.marketplace_total) }}</span>
     </div>
   </div>
   {% endif %}
 
-  {% set rg_map = namespace(data={}) %}
-  {% for c in sub.costs %}
-    {% set _ = rg_map.data.update({c.resource_group: rg_map.data.get(c.resource_group, 0) + c.total_cost}) %}
-  {% endfor %}
-  <table>
-    <thead><tr><th>Resource Group</th><th>Costo Total</th><th>Recursos con costo</th></tr></thead>
+  <div class="monthly-wrap">
+  <table id="rg-tbl-{{ sub.subscription_id }}">
+    <thead><tr>
+      <th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',0)">Resource Group ↕</th>
+      <th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',1)">Recursos</th>
+      {% for m in rgd.months %}<th onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',{{ loop.index + 1 }})">{{ m }}</th>{% endfor %}
+      <th class="col-total" onclick="sortTbl('rg-tbl-{{ sub.subscription_id }}',{{ rgd.months|length + 2 }})">Total ↕</th>
+    </tr></thead>
     <tbody>
-    {% for rg, total in rg_map.data.items() | sort(attribute="1", reverse=True) %}
-    {% set rg_n = sub.costs | selectattr("resource_group","equalto",rg) | list | length %}
+    {% for rg in rgd.rgs %}
     <tr>
-      <td>{{ rg or "(marketplace)" }}</td>
-      <td class="savings">${{ "%.2f"|format(total) }}</td>
-      <td>{{ rg_n }}</td>
+      <td class="rname">{{ rg.name }}</td>
+      <td style="color:#6b7280;font-size:.8rem;">{{ rg.count }}</td>
+      {% for m in rgd.months %}
+      {% set mv = rg.monthly.get(m, 0) %}
+      <td class="{{ heat_class(mv, rgd.max_monthly) }}" data-v="{{ mv }}">
+        {% if mv > 0 %}${{ "%.2f"|format(mv) }}{% else %}<span class="cost-zero">—</span>{% endif %}
+      </td>
+      {% endfor %}
+      <td class="col-total savings" data-v="{{ rg.total }}">${{ "%.2f"|format(rg.total) }}</td>
     </tr>
     {% endfor %}
+    {# Totals row #}
+    <tr style="border-top:2px solid #e5e7eb;font-weight:700;background:#f0fdf4;">
+      <td>Total Azure</td>
+      <td></td>
+      {% for m in rgd.months %}
+      {% set mv = rgd.monthly_totals.get(m, 0) %}
+      <td class="savings" data-v="{{ mv }}">${{ "%.2f"|format(mv) }}</td>
+      {% endfor %}
+      <td class="col-total savings">${{ "%.2f"|format(rgd.rgs | map(attribute='total') | sum) }}</td>
+    </tr>
     </tbody>
   </table>
+  </div>
 </section>
 {% endif %}
 
@@ -275,10 +294,10 @@
     </tr></thead>
     <tbody>
     {% for r in evo.resources %}
-    <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }} {{ r.resource_group|lower }}{% if r.is_marketplace %} marketplace{% endif %}">
-      <td class="rname" title="{{ r.resource_id }}">{{ r.name }}{% if r.is_marketplace %} <span class="mp-badge">MP</span>{% endif %}</td>
+    <tr data-s="{{ r.name|lower }} {{ r.type_short|lower }} {{ r.resource_group|lower }}">
+      <td class="rname" title="{{ r.resource_id }}">{{ r.name }}</td>
       <td class="rtype">{{ r.type_short }}</td>
-      <td class="rtype">{{ r.resource_group or "(marketplace)" }}</td>
+      <td class="rtype">{{ r.resource_group }}</td>
       {% for m in evo.months %}
       {% set mv = r.monthly.get(m, 0) %}
       <td class="{{ heat_class(mv, evo.max_cost) }}" data-v="{{ mv }}">
