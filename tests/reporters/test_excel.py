@@ -58,7 +58,14 @@ def test_summary_headers(wb):
         "Subscription", "Total Cost (USD)", "CRITICAL", "HIGH", "MEDIUM", "INFO",
         "Est. Savings/mo (USD)", "Skipped",
         "Current Month Accrual (USD)", "Outstanding Invoices (USD)",
+        "Forecast Current Month (USD)",
     ]
+
+
+def test_summary_forecast_column(wb):
+    ws = wb["Summary"]
+    assert ws.cell(2, 11).value is not None
+    assert ws.cell(2, 11).value > 0
 
 
 def test_summary_accrual_column(wb):

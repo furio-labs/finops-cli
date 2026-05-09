@@ -97,3 +97,15 @@ def test_markdown_accrual_falls_back_to_last_month_when_current_empty():
     md = MarkdownReporter().render(_report_no_invoices_monthly_granularity())
     assert "2026-04" in md
     assert "200.00" in md
+
+
+def test_markdown_contains_forecast():
+    report = report_from_json(FIXTURE.read_text())
+    md = MarkdownReporter().render(report)
+    assert "Pronóstico" in md
+
+
+def test_markdown_forecast_shown_with_no_invoices():
+    """Forecast must appear even when subscription has no invoice history."""
+    md = MarkdownReporter().render(_report_no_invoices_monthly_granularity())
+    assert "Pronóstico" in md

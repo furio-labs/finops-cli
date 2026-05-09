@@ -179,6 +179,13 @@
       <div style="font-size:1.5rem;font-weight:700;">{{ sub.invoices|length }}</div>
       <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">períodos registrados</div>
     </div>
+    {% if bill.forecast %}
+    <div class="kpi-card" style="flex:1;min-width:180px;background:var(--surface);border-radius:8px;padding:1rem 1.25rem;border:1px solid var(--border);border-top:3px solid #dd6b20;">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.25rem;">Pronóstico {{ bill.forecast.forecast_month }}</div>
+      <div style="font-size:1.5rem;font-weight:700;color:#dd6b20;">${{ "{:,.2f}".format(bill.forecast.forecast) }}</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">{{ bill.forecast.method }}</div>
+    </div>
+    {% endif %}
   </div>
   {% if sub.invoices %}
   <table>

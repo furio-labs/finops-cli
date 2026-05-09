@@ -87,6 +87,17 @@ def test_html_accrual_falls_back_to_last_month_when_current_empty():
     assert "200" in html
 
 
+def test_html_contains_forecast():
+    report = report_from_json(FIXTURE.read_text())
+    html = HtmlReporter().render(report)
+    assert "Pronóstico" in html
+
+
+def test_html_forecast_shown_with_no_invoices():
+    html = HtmlReporter().render(_report_no_invoices_monthly_granularity())
+    assert "Pronóstico" in html
+
+
 def test_html_report_is_valid_html():
     report = report_from_json(FIXTURE.read_text())
     html = HtmlReporter().render(report)

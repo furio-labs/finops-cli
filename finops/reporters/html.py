@@ -3,6 +3,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from finops.models import SubscriptionData, ResourceCost
 from finops.reporters.models import Report
+from finops.reporters.billing import _effective_accrual_month, _compute_forecast
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -161,19 +162,6 @@ def _heat_class(value: float, max_cost: float) -> str:
     return "heat-1"
 
 
-def _effective_accrual_month(sub: SubscriptionData, date_to: str) -> str:
-    """Return the billing month to use for accrual.
-
-    With monthly granularity the API skips incomplete months, so date_to's
-    month may have no data. Fall back to the most recent month present in costs.
-    """
-    target = date_to[:7]
-    months_with_data = {day[:7] for c in sub.costs for day in c.daily_costs}
-    if target in months_with_data or not months_with_data:
-        return target
-    return max(months_with_data)
-
-
 def _billing_summary(sub: SubscriptionData, date_to: str) -> dict:
     effective_month = _effective_accrual_month(sub, date_to)
     accrual = sum(
@@ -192,6 +180,7 @@ def _billing_summary(sub: SubscriptionData, date_to: str) -> dict:
         "outstanding": outstanding,
         "current_month": effective_month,
         "invoices": sub.invoices,
+        "forecast": _compute_forecast(sub, date_to),
     }
 
 

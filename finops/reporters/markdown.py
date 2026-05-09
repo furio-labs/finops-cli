@@ -1,14 +1,7 @@
 from __future__ import annotations
 from finops.reporters.models import Report
-from finops.models import Severity, SubscriptionData
-
-
-def _effective_accrual_month(sub: SubscriptionData, date_to: str) -> str:
-    target = date_to[:7]
-    months_with_data = {day[:7] for c in sub.costs for day in c.daily_costs}
-    if target in months_with_data or not months_with_data:
-        return target
-    return max(months_with_data)
+from finops.models import Severity
+from finops.reporters.billing import _effective_accrual_month, _compute_forecast
 
 
 class MarkdownReporter:
@@ -63,7 +56,10 @@ class MarkdownReporter:
                 lines.append("### Facturación")
                 lines.append("")
                 lines.append(f"**Acumulado mes actual ({effective_month}):** ${accrual:,.2f}  ")
-                lines.append(f"**Facturas pendientes:** ${outstanding:,.2f}")
+                lines.append(f"**Facturas pendientes:** ${outstanding:,.2f}  ")
+                fc = _compute_forecast(sub, report.date_to)
+                if fc:
+                    lines.append(f"**Pronóstico {fc['forecast_month']}:** ${fc['forecast']:,.2f} *({fc['method']})*")
                 lines.append("")
                 if sub.invoices:
                     lines.append("| Período | Monto | Moneda | Estado | Vencimiento |")
