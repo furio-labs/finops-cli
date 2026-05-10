@@ -66,3 +66,11 @@ def test_analyzer_uses_env_model(monkeypatch):
     analyzer.analyze(_make_sub(), date(2026, 5, 1), date(2026, 5, 7))
     call_kwargs = client.messages.create.call_args
     assert call_kwargs.kwargs["model"] == "claude-sonnet-4-6"
+
+
+def test_analyzer_accepts_explicit_api_key():
+    """api_key kwarg must be forwarded to the Anthropic constructor."""
+    with patch("finops.ai.analyzer.Anthropic") as mock_cls:
+        mock_cls.return_value = _mock_client(_VALID_JSON)
+        AiAnalyzer(api_key="sk-test-key")
+    mock_cls.assert_called_once_with(api_key="sk-test-key")

@@ -12,8 +12,8 @@ _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 class AiAnalyzer:
-    def __init__(self) -> None:
-        self._client = Anthropic()
+    def __init__(self, api_key: str | None = None) -> None:
+        self._client = Anthropic(api_key=api_key)
         self._model = os.getenv("FINOPS_AI_MODEL", _DEFAULT_MODEL)
 
     def analyze(self, sub: SubscriptionData, date_from: date, date_to: date) -> list[AiInsight]:

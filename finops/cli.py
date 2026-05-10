@@ -60,6 +60,8 @@ def cli() -> None:
 @click.option("--config", "-c", default="subscriptions.yaml", show_default=True, help="Config file")
 @click.option("--with-ai", "with_ai", is_flag=True, default=False,
               help="AI-powered cost analysis via Claude (requires ANTHROPIC_API_KEY)")
+@click.option("--api-key", "api_key", default=None, envvar="ANTHROPIC_API_KEY",
+              help="Anthropic API key (overrides ANTHROPIC_API_KEY env var / .env)")
 def run(
     subscriptions: tuple[str, ...],
     analyzers: tuple[str, ...],
@@ -69,6 +71,7 @@ def run(
     output: str,
     config: str,
     with_ai: bool,
+    api_key: str | None,
 ) -> None:
     """Analyze Azure subscriptions and generate cost reports."""
     cfg = load_config(config)
@@ -154,10 +157,10 @@ def run(
                 progress.remove_task(task)
 
     if with_ai:
-        if not os.getenv("ANTHROPIC_API_KEY"):
+        if not api_key:
             console.print("[yellow]⚠ --with-ai ignorado: ANTHROPIC_API_KEY no configurado[/yellow]")
         else:
-            ai = AiAnalyzer()
+            ai = AiAnalyzer(api_key=api_key)
             for sub_data in results:
                 if not sub_data.skipped:
                     try:

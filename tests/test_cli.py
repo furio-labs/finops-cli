@@ -44,6 +44,7 @@ def test_run_help_shows_with_ai_flag():
     result = runner.invoke(cli, ["run", "--help"])
     assert result.exit_code == 0
     assert "--with-ai" in result.output
+    assert "--api-key" in result.output
 
 
 def test_with_ai_warns_when_no_api_key(tmp_path, monkeypatch):
