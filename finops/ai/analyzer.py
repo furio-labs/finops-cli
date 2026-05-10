@@ -26,4 +26,10 @@ class AiAnalyzer:
         raw = msg.content[0].text
         start = raw.find("[")
         end = raw.rfind("]") + 1
-        return [AiInsight(**item) for item in json.loads(raw[start:end])]
+        if start == -1 or end == 0:
+            raise ValueError(f"No JSON array in response: {raw[:200]!r}")
+        _known = {f.name for f in AiInsight.__dataclass_fields__.values()}
+        return [
+            AiInsight(**{k: v for k, v in item.items() if k in _known})
+            for item in json.loads(raw[start:end])
+        ]

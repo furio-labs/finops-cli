@@ -49,6 +49,24 @@ def test_analyze_handles_markdown_wrapped_json():
     assert result[0].category == "Recommendation"
 
 
+def test_analyze_ignores_extra_fields_from_claude():
+    """Claude may return extra fields not in AiInsight — they should be silently dropped."""
+    extra = '[{"title":"X","category":"Recommendation","detail":"d.","estimated_monthly_savings_usd":0.0,"confidence":"low","extra_field":"ignored"}]'
+    with patch("finops.ai.analyzer.Anthropic", return_value=_mock_client(extra)):
+        analyzer = AiAnalyzer()
+    result = analyzer.analyze(_make_sub(), date(2026, 5, 1), date(2026, 5, 7))
+    assert len(result) == 1
+    assert result[0].title == "X"
+
+
+def test_analyze_raises_on_no_json_array():
+    """A response with no JSON array should raise ValueError with the raw text."""
+    with patch("finops.ai.analyzer.Anthropic", return_value=_mock_client("Sorry, I cannot help.")):
+        analyzer = AiAnalyzer()
+    with pytest.raises(ValueError, match="No JSON array"):
+        analyzer.analyze(_make_sub(), date(2026, 5, 1), date(2026, 5, 7))
+
+
 def test_analyze_propagates_api_exception():
     client = MagicMock()
     client.messages.create.side_effect = RuntimeError("API error")
