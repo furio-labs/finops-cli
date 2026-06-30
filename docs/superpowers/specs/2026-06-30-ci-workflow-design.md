@@ -23,7 +23,7 @@ configuration. Remote: `furio-labs/finops-cli`.
 |---|---|
 | Dependency scope | Audit gate **+** auto-update bot |
 | Update bot | **Dependabot** (native uv support since 2025-03; our `pyproject.toml` has version constraints, so it updates both `pyproject.toml` and `uv.lock`) |
-| Vulnerability scanner | **`pip-audit`** over the resolved/transitive set exported from `uv.lock` |
+| Vulnerability scanner | **`pip-audit`** over the synced locked environment (`uv run --with pip-audit pip-audit --skip-editable`) |
 | Audit on unfixable CVEs | **Blocking**, with a documented `pip-audit --ignore-vuln <ID>` escape hatch for reviewed exceptions |
 | Scheduled re-audit | **Yes** — weekly, to catch CVEs disclosed against already-merged deps |
 | Python versions | Single version (3.12, from `.python-version`) — no matrix; the project pins one Python |
@@ -55,8 +55,8 @@ either "a test broke" or "a dependency is vulnerable / lock is stale".
 **Permissions:** `contents: read` (least privilege; neither job writes to the repo).
 
 **Job `test`:**
-1. `actions/checkout@v5`
-2. `astral-sh/setup-uv@v6` with `enable-cache: true` (installs uv; caches the uv store
+1. `actions/checkout@v7`
+2. `astral-sh/setup-uv@v7` with `enable-cache: true` (installs uv; caches the uv store
    between runs).
 3. `uv sync --locked` — installs runtime + dev group from `uv.lock`. uv reads
    `.python-version` and provisions Python 3.12 as part of this step. `--locked` **fails the
@@ -66,18 +66,20 @@ either "a test broke" or "a dependency is vulnerable / lock is stale".
    `AZURE_TEST_SUBSCRIPTION_ID`, which is not set in CI — correct, they stay skipped).
 
 **Job `audit`:**
-1. `actions/checkout@v5`
-2. `astral-sh/setup-uv@v6`
-3. `uv export --frozen --no-emit-project --format requirements-txt -o requirements.txt`
-   - Exports the **fully resolved, transitive** dependency set from `uv.lock`.
-   - `--no-emit-project` omits the local `finops` package (not on PyPI; would otherwise
-     make the audit error).
-   - `--frozen` uses the lock as-is without re-resolving (lock-staleness is already the
-     `test` job's responsibility).
-   - Includes the dev group by default, so dev-tool CVEs are caught too. If dev-only noise
-     becomes a problem, `--no-dev` narrows it to shipped deps (documented tunable, not the
-     default).
-4. `uvx pip-audit -r requirements.txt` — fails on any known CVE in that set.
+1. `actions/checkout@v7`
+2. `astral-sh/setup-uv@v7`
+3. `uv sync --locked` — materializes the exact locked environment (runtime + dev group).
+4. `uv run --with pip-audit pip-audit --skip-editable` — audits the **installed, fully
+   resolved** environment in place and fails on any known CVE.
+   - Auditing the synced environment (rather than `pip-audit -r requirements.txt`) avoids
+     pip-audit building an ephemeral venv from a requirements file — a step that proved
+     fragile (it invokes `ensurepip`, which can abort on some local interpreters). Verified
+     working locally: "No known vulnerabilities found", exit 0.
+   - `--skip-editable` omits the local `finops` package (editable install, not on PyPI;
+     would otherwise be unresolvable).
+   - The synced env includes the dev group, so dev-tool CVEs are caught too. To narrow to
+     shipped deps only, run `uv sync --locked --no-dev` before the audit (documented
+     tunable, not the default).
 
 **Escape hatch (blocking-audit policy):** when a flagged CVE has no fix available or is a
 reviewed non-issue, add `--ignore-vuln <GHSA-or-PYSEC-id>` to the `pip-audit` call, with a
@@ -120,7 +122,7 @@ These make the gate *enforced* rather than merely *present*. Documented in the r
 ```
 Dev opens PR → main ─┐
 Dependabot opens PR ─┼─► ci.yml ─► test  (uv sync --locked → pytest)
-weekly schedule ─────┘            └─ audit (uv export → pip-audit)
+weekly schedule ─────┘            └─ audit (uv sync --locked → pip-audit --skip-editable)
                                        │
                           both green ──┴── branch protection allows merge
                           either red ───── merge blocked
