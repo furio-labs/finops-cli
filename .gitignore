@@ -12,3 +12,5 @@ build/
 *.log
 .mypy_cache/
 subscriptions.yaml
+.DS_Store
+.serena/
