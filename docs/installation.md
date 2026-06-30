@@ -2,25 +2,21 @@
 
 ## Prerequisites
 
-- [pyenv](https://github.com/pyenv/pyenv) for Python version management
-- Python 3.12 installed via pyenv
+- [uv](https://docs.astral.sh/uv/) for Python and dependency management (install: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Azure CLI (`az`) for interactive login (optional if using a Service Principal)
+
+uv reads `.python-version` and installs the pinned Python 3.12 automatically — no separate Python install step is needed.
 
 ## Setup
 
 ```bash
-# 1. Set Python version (pyenv reads .python-version automatically)
+# 1. Create the virtualenv and install the project + dev dependencies.
+#    uv reads .python-version, fetches Python 3.12 if missing, and writes .venv/.
 cd finops
-pyenv install 3.12.12   # if not already installed
-pyenv local 3.12.12
+uv sync
 
-# 2. Create virtualenv and install
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-# 3. Verify
-finops --help
+# 2. Verify
+uv run finops --help
 ```
 
 ## Authentication
@@ -54,6 +50,6 @@ az login
 ## Upgrading
 
 ```bash
-source .venv/bin/activate
-pip install -e ".[dev]" --upgrade
+# Upgrade dependencies within the constraints in pyproject.toml and refresh uv.lock
+uv sync --upgrade
 ```

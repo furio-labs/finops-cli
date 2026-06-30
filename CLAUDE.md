@@ -9,45 +9,47 @@ A Python CLI tool (`finops`) that queries Azure subscriptions, detects cost leak
 ## Setup
 
 ```bash
-# First time
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+# First time — uv reads .python-version, fetches Python 3.12, creates .venv,
+# and installs the project + dev group. No manual venv/activation needed.
+uv sync
 
 # Credentials: either .env with service principal, or az login
 cp .env.example .env         # set AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET
 cp subscriptions.yaml.example subscriptions.yaml
 ```
 
+Run commands through `uv run <cmd>` (e.g. `uv run finops ...`, `uv run pytest`), which executes inside the project venv automatically.
+
 ## Commands
 
 ```bash
 # Full run (current month, all subscriptions)
-finops run
+uv run finops run
 
 # Narrow scope
-finops run --analyzers idle --analyzers untagged --granularity monthly
+uv run finops run --analyzers idle --analyzers untagged --granularity monthly
 
 # Re-render HTML/MD from cached data without API calls
-finops report --from-cache ./reports/2026-05-07/
+uv run finops report --from-cache ./reports/2026-05-07/
 
 # List configured subscriptions
-finops list-subscriptions
+uv run finops list-subscriptions
 ```
 
 ## Tests
 
 ```bash
 # All unit tests
-pytest
+uv run pytest
 
 # Single file
-pytest tests/analyzers/test_idle.py -v
+uv run pytest tests/analyzers/test_idle.py -v
 
 # With coverage
-pytest --cov=finops --cov-report=term-missing
+uv run pytest --cov=finops --cov-report=term-missing
 
 # Integration tests (real Azure calls — requires AZURE_TEST_SUBSCRIPTION_ID env var)
-pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 ```
 
 ## Architecture
@@ -87,7 +89,7 @@ InvoiceCollector   →  list[Invoice]         ─┘
 The Jinja2 template lives at `finops/reporters/templates/report.html.j2`. After editing it, re-render without API calls:
 
 ```bash
-finops report --from-cache ./reports/2026-05-07/
+uv run finops report --from-cache ./reports/2026-05-07/
 ```
 
 Key template variables: `report`, `report.subscriptions`, `report.total_cost`, `report.total_estimated_savings`, `report.all_findings`, `report.findings_by_severity()`.

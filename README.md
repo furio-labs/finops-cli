@@ -5,18 +5,16 @@ Azure cost analysis and optimization tool built by [Furio Labs](https://furiolab
 ## Quick Start
 
 ```bash
-# 1. Clone and set up
+# 1. Clone and set up (uv reads .python-version and creates .venv)
 cd finops
-pyenv local 3.12.0
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 
 # 2. Configure credentials
 cp .env.example .env          # fill in Azure credentials
 cp subscriptions.yaml.example subscriptions.yaml   # fill in subscription IDs
 
 # 3. Run
-finops run
+uv run finops run
 ```
 
 Reports land in `./reports/YYYY-MM-DD/`.
@@ -35,6 +33,6 @@ Reports land in `./reports/YYYY-MM-DD/`.
 
 ## Requirements
 
-- Python 3.12+ (managed with pyenv)
+- [uv](https://docs.astral.sh/uv/) (manages the Python toolchain — installs Python 3.12 from `.python-version` automatically)
 - Azure subscription(s) with Cost Management Reader + Reader roles
 - Either a Service Principal or `az login` session

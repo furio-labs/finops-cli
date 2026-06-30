@@ -89,7 +89,7 @@ Machine-readable cache of the full run. Schema:
 Re-generate HTML and Markdown from a previous run without any Azure API calls:
 
 ```bash
-finops report --from-cache ./reports/2026-05-07/
+uv run finops report --from-cache ./reports/2026-05-07/
 ```
 
 Useful when:

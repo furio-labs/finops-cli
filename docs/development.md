@@ -4,8 +4,9 @@
 
 ```
 finops/
-├── pyproject.toml                    # Package metadata and dependencies
-├── .python-version                   # pyenv version pin (3.12.x)
+├── pyproject.toml                    # Package metadata, dependencies, dev group
+├── uv.lock                           # Resolved dependency lock (committed)
+├── .python-version                   # Python version pin (3.12.x), read by uv
 ├── subscriptions.yaml.example        # Config template (copy → subscriptions.yaml)
 ├── .env.example                      # Credentials template (copy → .env)
 ├── finops/                           # Main package
@@ -40,18 +41,17 @@ finops/
 
 ## Running Tests
 
-```bash
-source .venv/bin/activate
+`uv run` executes inside the project's virtualenv — no manual activation needed.
 
+```bash
 # All unit tests
-pytest
+uv run pytest
 
 # Specific module
-pytest tests/analyzers/test_idle.py -v
+uv run pytest tests/analyzers/test_idle.py -v
 
-# With coverage
-pip install pytest-cov
-pytest --cov=finops --cov-report=term-missing
+# With coverage (pytest-cov is in the dev group)
+uv run pytest --cov=finops --cov-report=term-missing
 ```
 
 ## Integration Tests
@@ -60,7 +60,7 @@ Integration tests make real Azure API calls. They are skipped by default.
 
 ```bash
 export AZURE_TEST_SUBSCRIPTION_ID="your-subscription-id"
-pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 ```
 
 Requires valid Azure credentials in `.env` or an active `az login` session.
@@ -112,20 +112,25 @@ Key variables available in the template:
 
 After editing the template, re-render existing data without API calls:
 ```bash
-finops report --from-cache ./reports/2026-05-07/
+uv run finops report --from-cache ./reports/2026-05-07/
 ```
 
 ## Dependency Management
 
-Dependencies are declared in `pyproject.toml`. To add a new one:
+Dependencies are declared in `pyproject.toml` (`[project.dependencies]` for runtime,
+`[dependency-groups].dev` for tooling). uv manages them:
 
 ```bash
-# Edit pyproject.toml, then reinstall
-pip install -e ".[dev]"
+# Add a runtime dependency
+uv add azure-mgmt-monitor
+
+# Add a dev-only dependency
+uv add --dev pytest-cov
+
+# Remove one
+uv remove azure-mgmt-monitor
 ```
 
-There is no lock file — `pip install` resolves at install time. If you need reproducible builds, generate one:
-
-```bash
-pip freeze > requirements-lock.txt
-```
+`uv.lock` is the resolved lock file and **is committed** — it pins exact versions for
+reproducible installs. `uv sync` installs exactly what the lock specifies; `uv sync --upgrade`
+re-resolves within the `pyproject.toml` constraints and updates the lock.

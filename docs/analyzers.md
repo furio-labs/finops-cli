@@ -114,10 +114,10 @@ cost_thresholds:
 
 ```bash
 # Run only untagged and scheduling
-finops run --analyzers untagged --analyzers scheduling
+uv run finops run --analyzers untagged --analyzers scheduling
 
 # Run only idle
-finops run --analyzers idle
+uv run finops run --analyzers idle
 ```
 
 Valid keys: `untagged`, `idle`, `wrong_sku`, `dev_in_prod`, `scheduling`

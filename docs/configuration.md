@@ -44,7 +44,7 @@ cost_thresholds:
 ## Using a Different Config File
 
 ```bash
-finops run --config /path/to/other-subscriptions.yaml
+uv run finops run --config /path/to/other-subscriptions.yaml
 ```
 
 ## Overriding Subscriptions at Runtime
@@ -52,7 +52,7 @@ finops run --config /path/to/other-subscriptions.yaml
 Analyze only specific subscriptions without editing the config:
 
 ```bash
-finops run --subscriptions sub-id-1 --subscriptions sub-id-2
+uv run finops run --subscriptions sub-id-1 --subscriptions sub-id-2
 ```
 
 The `--subscriptions` flag filters to the given IDs — they must still be listed in the config file.

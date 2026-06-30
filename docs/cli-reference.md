@@ -1,5 +1,8 @@
 # CLI Reference
 
+> Examples below show the bare `finops` command. Run it through the project venv with
+> `uv run finops ...` (or activate `.venv` first). See [Installation](installation.md).
+
 ## `finops run`
 
 Analyze subscriptions and generate reports. Makes live Azure API calls.
