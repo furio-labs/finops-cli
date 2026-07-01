@@ -12,7 +12,7 @@ dependencies = [
     # <26: 26.0.0 dropped the top-level `from azure.mgmt.resource import
     # ResourceManagementClient` rollup (collectors/resources.py). Lift the cap
     # once that import moves to `azure.mgmt.resource.resources`.
-    "azure-mgmt-resource>=23.2.0,<26",
+    "azure-mgmt-resource>=26.0.0,<27",
     "azure-mgmt-billing>=6.0.0",
     "click>=8.1.8",
     "jinja2>=3.1.5",
