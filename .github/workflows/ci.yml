@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC — re-audit main for newly disclosed CVEs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+      - name: Run tests
+        run: uv run pytest
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+      # Audits the synced environment in place. --skip-editable omits the local
+      # finops package (not on PyPI). To silence an unfixable/reviewed CVE, append
+      # e.g. --ignore-vuln GHSA-xxxx-xxxx-xxxx with a comment stating ID/date/reason.
+      - name: Audit dependencies for known vulnerabilities
+        run: uv run --with pip-audit pip-audit --skip-editable

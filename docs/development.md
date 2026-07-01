@@ -134,3 +134,48 @@ uv remove azure-mgmt-monitor
 `uv.lock` is the resolved lock file and **is committed** — it pins exact versions for
 reproducible installs. `uv sync` installs exactly what the lock specifies; `uv sync --upgrade`
 re-resolves within the `pyproject.toml` constraints and updates the lock.
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every pull request to `main`, on pushes to `main`,
+and weekly (Mondays 06:00 UTC). Two jobs run in parallel:
+
+- **test** — `uv sync --locked` (fails if `uv.lock` is out of sync with `pyproject.toml`)
+  then `uv run pytest`.
+- **audit** — `uv sync --locked` then `uv run --with pip-audit pip-audit --skip-editable`,
+  which fails the build on any known CVE in the resolved dependency tree.
+
+`.github/dependabot.yml` opens weekly PRs for the `uv` (Python deps) and `github-actions`
+ecosystems; each PR re-runs the gate above.
+
+### Silencing an unfixable vulnerability
+
+If `audit` flags a CVE with no available fix (or a reviewed non-issue), append
+`--ignore-vuln <GHSA-or-PYSEC-id>` to the `pip-audit` step in `ci.yml`, with a comment
+stating the ID, date, and reason. Remove it once a fixed version is available.
+
+### One-time repository settings (required to actually block merges)
+
+The workflow files do not block merges by themselves — these GitHub settings do:
+
+1. **Branch protection on `main`** requiring the `test` and `audit` checks. As a maintainer:
+   ```bash
+   cat > /tmp/protection.json <<'JSON'
+   {
+     "required_status_checks": { "strict": true, "contexts": ["test", "audit"] },
+     "enforce_admins": true,
+     "required_pull_request_reviews": null,
+     "restrictions": null
+   }
+   JSON
+   gh api -X PUT repos/furio-labs/finops-cli/branches/main/protection \
+     -H "Accept: application/vnd.github+json" --input /tmp/protection.json
+   ```
+   (Or: Settings → Branches → Add rule → require status checks `test` and `audit`.)
+
+2. **Dependabot alerts + security updates** (proactive fix PRs for vulnerable deps):
+   ```bash
+   gh api -X PUT repos/furio-labs/finops-cli/vulnerability-alerts
+   gh api -X PUT repos/furio-labs/finops-cli/automated-security-fixes
+   ```
+   (Or: Settings → Code security → enable Dependabot alerts and security updates.)
