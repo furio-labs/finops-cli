@@ -1,5 +1,5 @@
 from __future__ import annotations
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 from finops.models import AzureResource
 from finops.collectors.base import retry_on_throttle
 
