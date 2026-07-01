@@ -1,18 +1,35 @@
 from __future__ import annotations
 from finops.analyzers.base import Analyzer
-from finops.models import AzureResource, ResourceCost, Finding, Severity
+from finops.models import CloudResource, ResourceCost, Finding, Severity
 
 _DEV_ENV_VALUES = {"dev", "development", "staging", "test", "qa"}
 _PROD_ENV_VALUES = {"production", "prod"}
+
+# Azure SKU heuristics
 _DEV_SKU_TIERS = {"burstable", "basic", "free", "shared"}
 _DEV_SKU_PREFIXES = ("standard_b",)
 _EXPENSIVE_VM_PREFIXES = ("standard_d", "standard_e", "standard_f", "standard_m", "standard_n")
 
+# GCP machine-type heuristics (sku_name is the machine type, e.g. "e2-standard-4")
+_GCP_DEV_MACHINE_TYPES = {"f1-micro", "g1-small", "e2-micro", "e2-small", "e2-medium"}
+_GCP_EXPENSIVE_FAMILIES = ("n2", "n2d", "c2", "c2d", "c3", "m1", "m2", "m3", "a2")
 
-def _env_from_resource(resource: AzureResource) -> str:
+_CHECK_TYPES = {
+    "azure": {
+        "microsoft.compute/virtualmachines",
+        "microsoft.dbforpostgresql/flexibleservers",
+        "microsoft.web/sites",
+    },
+    "gcp": {
+        "compute.googleapis.com/instance",
+    },
+}
+
+
+def _env_from_resource(resource: CloudResource) -> str:
     env = resource.tags.get("environment", "").lower()
     if not env:
-        rg = resource.resource_group.lower()
+        rg = (resource.resource_group or "").lower()
         for val in _DEV_ENV_VALUES:
             if val in rg:
                 return val
@@ -22,16 +39,20 @@ def _env_from_resource(resource: AzureResource) -> str:
     return env
 
 
-def _is_dev_sku(resource: AzureResource) -> bool:
-    tier = (resource.sku_tier or "").lower()
+def _is_dev_sku(resource: CloudResource) -> bool:
     name = (resource.sku_name or "").lower()
+    if resource.provider == "gcp":
+        return name in _GCP_DEV_MACHINE_TYPES
+    tier = (resource.sku_tier or "").lower()
     if tier in _DEV_SKU_TIERS:
         return True
     return any(name.startswith(p) for p in _DEV_SKU_PREFIXES)
 
 
-def _is_expensive_sku(resource: AzureResource) -> bool:
+def _is_expensive_sku(resource: CloudResource) -> bool:
     name = (resource.sku_name or "").lower()
+    if resource.provider == "gcp":
+        return name.split("-", 1)[0] in _GCP_EXPENSIVE_FAMILIES
     return any(name.startswith(p) for p in _EXPENSIVE_VM_PREFIXES)
 
 
@@ -43,17 +64,13 @@ class DevInProdAnalyzer(Analyzer):
     def analyze(
         self,
         subscription_id: str,
-        resources: list[AzureResource],
+        resources: list[CloudResource],
         costs: list[ResourceCost],
     ) -> list[Finding]:
         findings = []
         for resource in resources:
             rtype = resource.type.lower()
-            if rtype not in (
-                "microsoft.compute/virtualmachines",
-                "microsoft.dbforpostgresql/flexibleservers",
-                "microsoft.web/sites",
-            ):
+            if rtype not in _CHECK_TYPES.get(resource.provider, set()):
                 continue
 
             env = _env_from_resource(resource)
@@ -75,6 +92,7 @@ class DevInProdAnalyzer(Analyzer):
                         "Revise si el SKU es adecuado para producción o si el entorno está mal etiquetado."
                     ),
                     metadata={"environment": env, "sku_name": resource.sku_name, "sku_tier": resource.sku_tier},
+                    provider=resource.provider,
                 ))
             elif is_dev_env and _is_expensive_sku(resource):
                 findings.append(Finding(
@@ -91,5 +109,6 @@ class DevInProdAnalyzer(Analyzer):
                         "Considere reducir el SKU para ahorrar costos en ambiente no productivo."
                     ),
                     metadata={"environment": env, "sku_name": resource.sku_name, "sku_tier": resource.sku_tier},
+                    provider=resource.provider,
                 ))
         return findings

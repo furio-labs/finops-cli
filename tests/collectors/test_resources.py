@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from finops.collectors.resources import ResourceCollector
-from finops.models import AzureResource
+from finops.models import CloudResource
 
 
 def _make_sdk_resource(
