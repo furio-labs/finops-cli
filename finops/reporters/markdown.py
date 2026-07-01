@@ -66,7 +66,8 @@ class MarkdownReporter:
                     lines.append("|---|---|---|---|---|")
                     for inv in sub.invoices:
                         due = inv.due_date or "—"
-                        lines.append(f"| {inv.billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
+                        billing_period = "REDACTED" if inv.billing_period else "—"
+                        lines.append(f"| {billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
                     lines.append("")
 
             lines.append(f"### Costo Total: ${sub.total_cost:.2f}")
