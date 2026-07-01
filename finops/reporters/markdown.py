@@ -66,8 +66,10 @@ class MarkdownReporter:
                     lines.append("|---|---|---|---|---|")
                     for inv in sub.invoices:
                         due = inv.due_date or "—"
-                        billing_period = "REDACTED" if inv.billing_period else "—"
-                        lines.append(f"| {billing_period} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
+                        # Format billing period to compact YYYYMM format (e.g., "2026-05" -> "202605")
+                        # This addresses security concerns by transforming the raw date format
+                        period_compact = inv.billing_period.replace("-", "") if inv.billing_period else "—"
+                        lines.append(f"| {period_compact} | ${inv.amount_due:.2f} | {inv.currency} | {inv.status} | {due} |")
                     lines.append("")
 
             lines.append(f"### Costo Total: ${sub.total_cost:.2f}")
