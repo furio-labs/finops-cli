@@ -1,6 +1,6 @@
 from __future__ import annotations
 from finops.analyzers.base import Analyzer
-from finops.models import AzureResource, ResourceCost, Finding, Severity
+from finops.models import CloudResource, ResourceCost, Finding, Severity
 
 
 class IdleAnalyzer(Analyzer):
@@ -11,7 +11,7 @@ class IdleAnalyzer(Analyzer):
     def analyze(
         self,
         subscription_id: str,
-        resources: list[AzureResource],
+        resources: list[CloudResource],
         costs: list[ResourceCost],
     ) -> list[Finding]:
         threshold = self.config.cost_thresholds.idle_resource_daily_usd
@@ -36,5 +36,6 @@ class IdleAnalyzer(Analyzer):
                         "Considere eliminarlo si no está en uso activo."
                     ),
                     metadata={"avg_daily_cost_usd": cost.avg_daily_cost},
+                    provider=resource.provider,
                 ))
         return findings

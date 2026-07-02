@@ -49,3 +49,73 @@ def test_report_roundtrip_json():
     assert len(restored.subscriptions) == 1
     assert restored.subscriptions[0].findings[0].severity == Severity.HIGH
     assert restored.subscriptions[0].findings[0].estimated_monthly_savings_usd == 50.0
+
+
+def test_report_roundtrip_preserves_provider():
+    sub = SubscriptionData(
+        subscription_id="my-gcp-project",
+        subscription_name="GCP Project",
+        resources=[make_resource(subscription_id="my-gcp-project", resource_group=None, provider="gcp")],
+        costs=[make_cost(subscription_id="my-gcp-project", resource_group="", provider="gcp")],
+        invoices=[],
+    )
+    report = Report(
+        generated_at="2026-05-06T10:00:00Z", date_from="2026-05-01",
+        date_to="2026-05-06", subscriptions=[sub],
+    )
+    restored = report_from_json(report_to_json(report))
+    r = restored.subscriptions[0]
+    assert r.resources[0].provider == "gcp"
+    assert r.resources[0].resource_group is None
+    assert r.costs[0].provider == "gcp"
+
+
+def test_from_dict_legacy_json_without_provider_field():
+    """Pre-GCP data.json has no `provider` key; it must still deserialize (default azure)."""
+    legacy = {
+        "generated_at": "2026-05-06T10:00:00Z",
+        "date_from": "2026-05-01",
+        "date_to": "2026-05-06",
+        "subscriptions": [
+            {
+                "subscription_id": "sub1",
+                "subscription_name": "Legacy Azure",
+                "resources": [
+                    {
+                        "id": "/subscriptions/sub1/resourceGroups/rg/providers/x/vm1",
+                        "name": "vm1", "type": "microsoft.compute/virtualmachines",
+                        "resource_group": "rg", "subscription_id": "sub1",
+                        "location": "chilecentral", "tags": {},
+                        "sku_name": None, "sku_tier": None,
+                    }
+                ],
+                "costs": [
+                    {
+                        "resource_id": "/subscriptions/sub1/resourceGroups/rg/providers/x/vm1",
+                        "resource_group": "rg", "subscription_id": "sub1",
+                        "resource_type": "microsoft.compute/virtualmachines",
+                        "daily_costs": {"2026-05-01": 5.0},
+                        "publisher_type": "Azure", "service_name": "",
+                    }
+                ],
+                "invoices": [],
+                "findings": [
+                    {
+                        "subscription_id": "sub1", "resource_group": "rg",
+                        "resource_id": "/subscriptions/sub1/resourceGroups/rg/providers/x/vm1",
+                        "resource_type": "microsoft.compute/virtualmachines",
+                        "severity": "HIGH", "category": "Idle",
+                        "estimated_monthly_savings_usd": 50.0,
+                        "recommendation": "Elimine este recurso.", "metadata": {},
+                    }
+                ],
+            }
+        ],
+    }
+    import json
+    restored = report_from_json(json.dumps(legacy))
+    sub = restored.subscriptions[0]
+    assert sub.resources[0].provider == "azure"
+    assert sub.costs[0].provider == "azure"
+    assert sub.findings[0].provider == "azure"
+    assert sub.resources[0].resource_group == "rg"

@@ -15,16 +15,17 @@ class Severity(IntEnum):
 
 
 @dataclass
-class AzureResource:
+class CloudResource:
     id: str
     name: str
     type: str
-    resource_group: str
-    subscription_id: str
+    subscription_id: str                     # Azure: subscription id; GCP: project id
     location: str
-    tags: dict[str, str]
-    sku_name: Optional[str] = None
+    tags: dict[str, str]                      # Azure: tags; GCP: labels
+    resource_group: Optional[str] = None      # Azure resource group; GCP has none (None)
+    sku_name: Optional[str] = None            # GCP: machine type, e.g. "e2-standard-4"
     sku_tier: Optional[str] = None
+    provider: str = "azure"                   # "azure" | "gcp"
 
 
 @dataclass
@@ -34,8 +35,9 @@ class ResourceCost:
     subscription_id: str
     resource_type: str
     daily_costs: dict[str, float]  # "YYYY-MM-DD" -> USD
-    publisher_type: str = "Azure"  # "Azure" | "Marketplace"
+    publisher_type: str = "Azure"  # "Azure" | "Marketplace" | "GCP"
     service_name: str = ""
+    provider: str = "azure"        # "azure" | "gcp"
 
     @property
     def total_cost(self) -> float:
@@ -72,6 +74,7 @@ class Finding:
     estimated_monthly_savings_usd: float
     recommendation: str
     metadata: dict = field(default_factory=dict)
+    provider: str = "azure"        # "azure" | "gcp"
 
 
 @dataclass
@@ -87,7 +90,7 @@ class AiInsight:
 class SubscriptionData:
     subscription_id: str
     subscription_name: str
-    resources: list[AzureResource]
+    resources: list[CloudResource]
     costs: list[ResourceCost]
     invoices: list[Invoice]
     findings: list[Finding] = field(default_factory=list)

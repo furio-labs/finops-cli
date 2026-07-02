@@ -1,9 +1,34 @@
 subscriptions:
+  # Azure entry (default — `provider` may be omitted for backward compatibility)
   - id: "00000000-0000-0000-0000-000000000000"
     name: "Example Production Client"
     tags:
       environment: production
       client: example-client
+
+  # GCP entry. Requires detailed Cloud Billing export to BigQuery.
+  # See docs/gcp-billing-export-setup.md for how to enable it.
+  # - provider: gcp
+  #   id: "my-gcp-project-123"              # GCP project id
+  #   name: "Example GCP Client"
+  #   billing_account_id: "0123AB-4567CD-89EF01"
+  #   billing_export_dataset: "billing_export"   # BigQuery dataset holding the export
+  #   # billing_export_table: ""            # optional; defaults to gcp_billing_export_resource_v1_<ACCT>
+  #   # billing_export_project: ""          # optional; defaults to the project id above
+  #   tags:
+  #     environment: production
+  #     client: example-client
+
+  # AWS entry. Requires Cost Explorer enabled on the account/payer.
+  # See docs/aws-cost-explorer-setup.md for the required IAM permissions.
+  # - provider: aws
+  #   id: "123456789012"                    # AWS account id
+  #   name: "Example AWS Client"
+  #   region: "us-east-1"                   # used for the tagging/EC2 clients; Cost Explorer is global
+  #   # role_arn: "arn:aws:iam::123456789012:role/FinOpsReadOnly"  # optional cross-account role
+  #   tags:
+  #     environment: production
+  #     client: example-client
 
 required_tags:
   - environment

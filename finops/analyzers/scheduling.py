@@ -1,13 +1,26 @@
 from __future__ import annotations
 from datetime import date
 from finops.analyzers.base import Analyzer
-from finops.models import AzureResource, ResourceCost, Finding, Severity
+from finops.models import CloudResource, ResourceCost, Finding, Severity
 
 _NON_PROD_ENVS = {"dev", "development", "staging", "test", "qa"}
 _SCHEDULABLE_TYPES = {
-    "microsoft.compute/virtualmachines",
-    "microsoft.web/sites",
-    "microsoft.compute/virtualmachinescalesets",
+    "azure": {
+        "microsoft.compute/virtualmachines",
+        "microsoft.web/sites",
+        "microsoft.compute/virtualmachinescalesets",
+    },
+    "gcp": {
+        "compute.googleapis.com/instance",
+        "compute.googleapis.com/instancegroupmanager",
+        "run.googleapis.com/service",
+        "appengine.googleapis.com/service",
+    },
+    "aws": {
+        "ec2:instance",
+        "rds:db",
+        "ecs:service",
+    },
 }
 
 
@@ -27,18 +40,18 @@ class SchedulingAnalyzer(Analyzer):
     def analyze(
         self,
         subscription_id: str,
-        resources: list[AzureResource],
+        resources: list[CloudResource],
         costs: list[ResourceCost],
     ) -> list[Finding]:
         cost_by_rid = {c.resource_id: c for c in costs}
         findings = []
 
         for resource in resources:
-            if resource.type.lower() not in _SCHEDULABLE_TYPES:
+            if resource.type.lower() not in _SCHEDULABLE_TYPES.get(resource.provider, set()):
                 continue
             env = resource.tags.get("environment", "").lower()
             if not env:
-                rg = resource.resource_group.lower()
+                rg = (resource.resource_group or "").lower()
                 env = next((e for e in _NON_PROD_ENVS if e in rg), "")
             if env not in _NON_PROD_ENVS:
                 continue
@@ -60,5 +73,6 @@ class SchedulingAnalyzer(Analyzer):
                     "Configure un horario de apagado fuera de horas de trabajo para reducir costos."
                 ),
                 metadata={"environment": env, "days_active": len(cost.daily_costs)},
+                provider=resource.provider,
             ))
         return findings

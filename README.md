@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/furio-labs/finops-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/furio-labs/finops-cli/actions/workflows/ci.yml)
 
-Azure cost analysis and optimization tool built by [Furio Labs](https://furiolabs.com). Queries Azure subscriptions, identifies cost leaks, and generates HTML, Markdown, and Excel reports.
+**Multi Cloud** cost analysis and optimization tool built by [Furio Labs](https://furiolabs.com). Queries cloud providers subscriptions, identifies cost leaks, and generates HTML, Markdown, and Excel reports.
+
+![The finops pipeline](docs/images/finops-pipeline.png)
 
 ## Quick Start
 
@@ -31,6 +33,8 @@ Reports land in `./reports/YYYY-MM-DD/`.
 | [Analyzers](docs/analyzers.md) | What each cost-leak detector checks |
 | [Reports](docs/reports.md) | HTML, Markdown, and JSON output format |
 | [Azure Permissions](docs/azure-permissions.md) | Required RBAC roles per subscription |
+| [AWS Cost Explorer Setup](docs/aws-cost-explorer-setup.md) | Enabling Cost Explorer and required IAM permissions |
+| [GCP Billing Export Setup](docs/gcp-billing-export-setup.md) | BigQuery billing export configuration |
 | [Development](docs/development.md) | Running tests, adding analyzers |
 
 ## Requirements
