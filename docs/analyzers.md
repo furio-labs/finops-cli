@@ -2,6 +2,10 @@
 
 Each analyzer scans all resources in a subscription and emits `Finding` objects with a severity, category, estimated monthly savings (USD), and a recommendation in Spanish.
 
+![The rule-based detectors](images/finops-detectors.png)
+
+![Where rules end and the model begins](images/finops-boundary.png)
+
 ## Available Analyzers
 
 | Name | `--analyzers` key | Severity | What it detects |

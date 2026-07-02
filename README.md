@@ -4,6 +4,8 @@
 
 Azure cost analysis and optimization tool built by [Furio Labs](https://furiolabs.com). Queries Azure subscriptions, identifies cost leaks, and generates HTML, Markdown, and Excel reports.
 
+![The finops pipeline](docs/images/finops-pipeline.png)
+
 ## Quick Start
 
 ```bash
