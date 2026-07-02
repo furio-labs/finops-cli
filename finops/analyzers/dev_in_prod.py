@@ -23,6 +23,9 @@ _CHECK_TYPES = {
     "gcp": {
         "compute.googleapis.com/instance",
     },
+    # AWS intentionally has no entry here: the Resource Groups Tagging API
+    # (finops/collectors/aws/resources.py) doesn't return instance type, so
+    # there's no sku_name/sku_tier to check env-vs-SKU mismatches against.
 }
 
 

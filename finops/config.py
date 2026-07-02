@@ -34,8 +34,17 @@ class GcpEntry(BaseModel):
         return f"{proj}.{self.billing_export_dataset}.{table}"
 
 
+class AwsEntry(BaseModel):
+    provider: Literal["aws"]
+    id: str                                    # AWS account id (fills the subscription_id slot)
+    name: str
+    tags: dict[str, str] = Field(default_factory=dict)
+    region: str = "us-east-1"                  # Cost Explorer is a global endpoint; this is for regional clients (e.g. EC2/tagging)
+    role_arn: str = ""                         # optional cross-account role to assume for this account
+
+
 # Discriminated union; `SubscriptionEntry` name kept for backward compatibility.
-SubscriptionEntry = Annotated[Union[AzureEntry, GcpEntry], Field(discriminator="provider")]
+SubscriptionEntry = Annotated[Union[AzureEntry, GcpEntry, AwsEntry], Field(discriminator="provider")]
 
 
 class CostThresholds(BaseModel):

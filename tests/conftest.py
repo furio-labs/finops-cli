@@ -73,6 +73,33 @@ def make_gcp_cost(
     )
 
 
+def make_aws_resource(
+    resource_id="arn:aws:ec2:us-east-1:123456789012:instance/i-0abc123",
+    name="i-0abc123",
+    resource_type="ec2:instance",
+    subscription_id="123456789012",
+    location="us-east-1",
+    tags=None,
+) -> CloudResource:
+    return make_resource(
+        resource_id=resource_id, name=name, resource_type=resource_type,
+        resource_group=None, subscription_id=subscription_id, location=location,
+        tags=tags, sku_name=None, sku_tier=None, provider="aws",
+    )
+
+
+def make_aws_cost(
+    resource_id="aws:unattributed/Amazon_Elastic_Compute_Cloud",
+    subscription_id="123456789012",
+    resource_type="Amazon Elastic Compute Cloud",
+    daily_costs=None,
+) -> ResourceCost:
+    return make_cost(
+        resource_id=resource_id, resource_group="", subscription_id=subscription_id,
+        resource_type=resource_type, daily_costs=daily_costs, provider="aws",
+    )
+
+
 def make_finding(
     subscription_id="sub1",
     resource_group="rg-prod",

@@ -45,7 +45,7 @@ _ALL_ANALYZERS = {
 
 @click.group()
 def cli() -> None:
-    """FinOps CLI — multi-cloud (Azure + GCP) cost analysis and optimization. Built by Furio Labs (furiolabs.com)."""
+    """FinOps CLI — multi-cloud (Azure + GCP + AWS) cost analysis and optimization. Built by Furio Labs (furiolabs.com)."""
 
 
 @cli.command()
@@ -74,7 +74,7 @@ def run(
     with_ai: bool,
     api_key: str | None,
 ) -> None:
-    """Analyze Azure subscriptions / GCP projects and generate cost reports."""
+    """Analyze Azure subscriptions / GCP projects / AWS accounts and generate cost reports."""
     cfg = load_config(config)
     if subscriptions:
         cfg = cfg.with_subscription_override(list(subscriptions))

@@ -16,6 +16,11 @@ _SCHEDULABLE_TYPES = {
         "run.googleapis.com/service",
         "appengine.googleapis.com/service",
     },
+    "aws": {
+        "ec2:instance",
+        "rds:db",
+        "ecs:service",
+    },
 }
 
 

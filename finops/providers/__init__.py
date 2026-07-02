@@ -27,6 +27,9 @@ def get_credential(entry):
     if entry.provider == "gcp":
         from finops.providers import gcp
         return gcp.build_credential(entry)
+    if entry.provider == "aws":
+        from finops.providers import aws
+        return aws.build_credential(entry)
     from finops.providers import azure
     return azure.build_credential(entry)
 
@@ -36,5 +39,8 @@ def get_collectors(entry, credential):
     if entry.provider == "gcp":
         from finops.providers import gcp
         return gcp.build_collectors(entry, credential)
+    if entry.provider == "aws":
+        from finops.providers import aws
+        return aws.build_collectors(entry, credential)
     from finops.providers import azure
     return azure.build_collectors(entry, credential)

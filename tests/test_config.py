@@ -1,7 +1,7 @@
 import pytest
 import yaml
 from pathlib import Path
-from finops.config import load_config, FinOpsConfig, AzureEntry, GcpEntry
+from finops.config import load_config, FinOpsConfig, AzureEntry, GcpEntry, AwsEntry
 
 
 def test_load_valid_config(tmp_path):
@@ -129,3 +129,44 @@ def test_gcp_entry_missing_billing_fields_raises(tmp_path):
     }))
     with pytest.raises(SystemExit):
         load_config(str(config_file))
+
+
+def test_aws_entry_loads_with_defaults(tmp_path):
+    config_file = tmp_path / "subscriptions.yaml"
+    config_file.write_text(yaml.dump({
+        "subscriptions": [{
+            "provider": "aws", "id": "123456789012", "name": "Prod AWS",
+            "tags": {"client": "acme"},
+        }],
+    }))
+    config = load_config(str(config_file))
+    entry = config.subscriptions[0]
+    assert isinstance(entry, AwsEntry)
+    assert entry.region == "us-east-1"
+    assert entry.role_arn == ""
+
+
+def test_aws_entry_honors_region_and_role_arn():
+    entry = AwsEntry(
+        provider="aws", id="123456789012", name="Prod AWS",
+        region="eu-west-1", role_arn="arn:aws:iam::123456789012:role/FinOpsReadOnly",
+    )
+    assert entry.region == "eu-west-1"
+    assert entry.role_arn == "arn:aws:iam::123456789012:role/FinOpsReadOnly"
+
+
+def test_mixed_azure_gcp_aws_entries_load(tmp_path):
+    config_file = tmp_path / "subscriptions.yaml"
+    config_file.write_text(yaml.dump({
+        "subscriptions": [
+            {"id": "azure-sub", "name": "Azure"},
+            {"provider": "gcp", "id": "gcp-proj", "name": "GCP",
+             "billing_account_id": "0123AB-4567CD-89EF01",
+             "billing_export_dataset": "billing_export"},
+            {"provider": "aws", "id": "123456789012", "name": "AWS"},
+        ],
+    }))
+    config = load_config(str(config_file))
+    assert isinstance(config.subscriptions[0], AzureEntry)
+    assert isinstance(config.subscriptions[1], GcpEntry)
+    assert isinstance(config.subscriptions[2], AwsEntry)

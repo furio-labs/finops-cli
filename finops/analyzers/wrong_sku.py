@@ -24,6 +24,11 @@ class WrongSkuAnalyzer(Analyzer):
     def _check(self, subscription_id: str, resource: CloudResource) -> Finding | None:
         if resource.provider == "gcp":
             return self._check_gcp(subscription_id, resource)
+        if resource.provider == "aws":
+            # No SKU checks for AWS yet: the Resource Groups Tagging API
+            # (finops/collectors/aws/resources.py) doesn't return instance
+            # type/storage class, so there's nothing to key a SKU check on.
+            return None
         return self._check_azure(subscription_id, resource)
 
     def _finding(self, subscription_id, resource, severity, recommendation) -> Finding:

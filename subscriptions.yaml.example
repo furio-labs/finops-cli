@@ -19,6 +19,17 @@ subscriptions:
   #     environment: production
   #     client: example-client
 
+  # AWS entry. Requires Cost Explorer enabled on the account/payer.
+  # See docs/aws-cost-explorer-setup.md for the required IAM permissions.
+  # - provider: aws
+  #   id: "123456789012"                    # AWS account id
+  #   name: "Example AWS Client"
+  #   region: "us-east-1"                   # used for the tagging/EC2 clients; Cost Explorer is global
+  #   # role_arn: "arn:aws:iam::123456789012:role/FinOpsReadOnly"  # optional cross-account role
+  #   tags:
+  #     environment: production
+  #     client: example-client
+
 required_tags:
   - environment
   - client
