@@ -11,11 +11,13 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from finops.auth import get_credential, AuthMethod
 from finops.config import load_config
-from finops.collectors.cost import CostCollector
-from finops.collectors.resources import ResourceCollector
-from finops.collectors.invoices import InvoiceCollector
+from finops.providers import (
+    get_credential,
+    get_collectors,
+    ProviderPermissionError,
+    ProviderUnavailableError,
+)
 from finops.analyzers.untagged import UntaggedAnalyzer
 from finops.analyzers.idle import IdleAnalyzer
 from finops.analyzers.wrong_sku import WrongSkuAnalyzer
@@ -27,7 +29,6 @@ from finops.ai.analyzer import AiAnalyzer
 from finops.reporters.excel import ExcelReporter
 from finops.reporters.html import HtmlReporter
 from finops.reporters.markdown import MarkdownReporter
-from azure.core.exceptions import HttpResponseError
 
 load_dotenv()
 
@@ -44,7 +45,7 @@ _ALL_ANALYZERS = {
 
 @click.group()
 def cli() -> None:
-    """FinOps CLI — Azure cost analysis and optimization. Built by Furio Labs (furiolabs.com)."""
+    """FinOps CLI — multi-cloud (Azure + GCP) cost analysis and optimization. Built by Furio Labs (furiolabs.com)."""
 
 
 @cli.command()
@@ -73,7 +74,7 @@ def run(
     with_ai: bool,
     api_key: str | None,
 ) -> None:
-    """Analyze Azure subscriptions and generate cost reports."""
+    """Analyze Azure subscriptions / GCP projects and generate cost reports."""
     cfg = load_config(config)
     if subscriptions:
         cfg = cfg.with_subscription_override(list(subscriptions))
@@ -87,13 +88,7 @@ def run(
     if start > end:
         raise click.UsageError(f"--from ({start}) must be before --to ({end})")
 
-    try:
-        credential, method = get_credential()
-        console.print(f"[dim]Auth: {method.value} · Granularidad: {granularity}[/dim]")
-    except Exception as exc:
-        console.print(f"[red]Auth failed: {exc}[/red]")
-        console.print("[yellow]Set AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or run 'az login'[/yellow]")
-        sys.exit(1)
+    console.print(f"[dim]Granularidad: {granularity}[/dim]")
 
     if analyzers:
         unknown = set(analyzers) - set(_ALL_ANALYZERS)
@@ -107,16 +102,21 @@ def run(
         if not analyzers or name in analyzers
     ]
 
-    cost_col = CostCollector(credential)
-    res_col = ResourceCollector(credential)
-    inv_col = InvoiceCollector(credential)
-
+    credentials: dict[str, tuple] = {}   # cached per provider to avoid re-auth
     results: list[SubscriptionData] = []
 
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as progress:
         for sub_entry in cfg.subscriptions:
             task = progress.add_task(f"[cyan]{sub_entry.name}[/cyan]...", total=None)
             try:
+                if sub_entry.provider not in credentials:
+                    credentials[sub_entry.provider] = get_credential(sub_entry)
+                    console.print(
+                        f"[dim]Auth ({sub_entry.provider}): {credentials[sub_entry.provider][1]}[/dim]"
+                    )
+                credential, _ = credentials[sub_entry.provider]
+                res_col, cost_col, inv_col = get_collectors(sub_entry, credential)
+
                 resources = res_col.collect(sub_entry.id)
                 costs = cost_col.collect(sub_entry.id, start, end, granularity.capitalize())
                 invoices = inv_col.collect(sub_entry.id)
@@ -136,23 +136,30 @@ def run(
                     f"[green]✓[/green] {sub_entry.name} — "
                     f"{len(resources)} recursos, ${total:,.2f}, {len(findings)} hallazgos"
                 )
-            except HttpResponseError as exc:
-                if exc.status_code == 403:
-                    console.print(f"[yellow]⚠ {sub_entry.name} — sin permisos, omitida[/yellow]")
-                    results.append(SubscriptionData(
-                        subscription_id=sub_entry.id,
-                        subscription_name=sub_entry.name,
-                        resources=[], costs=[], invoices=[],
-                        skipped=True, skip_reason="Insufficient permissions (403)",
-                    ))
-                else:
-                    console.print(f"[red]✗ {sub_entry.name} — error: {exc}[/red]")
-                    results.append(SubscriptionData(
-                        subscription_id=sub_entry.id,
-                        subscription_name=sub_entry.name,
-                        resources=[], costs=[], invoices=[],
-                        skipped=True, skip_reason=f"API error: {exc.status_code}",
-                    ))
+            except ProviderPermissionError:
+                console.print(f"[yellow]⚠ {sub_entry.name} — sin permisos, omitida[/yellow]")
+                results.append(SubscriptionData(
+                    subscription_id=sub_entry.id,
+                    subscription_name=sub_entry.name,
+                    resources=[], costs=[], invoices=[],
+                    skipped=True, skip_reason="Insufficient permissions",
+                ))
+            except ProviderUnavailableError as exc:
+                console.print(f"[red]✗ {sub_entry.name} — omitida: {exc}[/red]")
+                results.append(SubscriptionData(
+                    subscription_id=sub_entry.id,
+                    subscription_name=sub_entry.name,
+                    resources=[], costs=[], invoices=[],
+                    skipped=True, skip_reason=str(exc),
+                ))
+            except Exception as exc:
+                console.print(f"[red]✗ {sub_entry.name} — error: {exc}[/red]")
+                results.append(SubscriptionData(
+                    subscription_id=sub_entry.id,
+                    subscription_name=sub_entry.name,
+                    resources=[], costs=[], invoices=[],
+                    skipped=True, skip_reason=f"error: {exc}",
+                ))
             finally:
                 progress.remove_task(task)
 

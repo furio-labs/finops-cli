@@ -14,6 +14,9 @@ dependencies = [
     # once that import moves to `azure.mgmt.resource.resources`.
     "azure-mgmt-resource>=26.0.0,<27",
     "azure-mgmt-billing>=6.0.0",
+    "google-auth>=2.30.0",
+    "google-cloud-asset>=3.27.0",
+    "google-cloud-bigquery>=3.25.0",
     "click>=8.1.8",
     "jinja2>=3.1.5",
     "pydantic>=2.10.0",

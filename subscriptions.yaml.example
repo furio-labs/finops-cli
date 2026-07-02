@@ -1,9 +1,23 @@
 subscriptions:
+  # Azure entry (default — `provider` may be omitted for backward compatibility)
   - id: "00000000-0000-0000-0000-000000000000"
     name: "Example Production Client"
     tags:
       environment: production
       client: example-client
+
+  # GCP entry. Requires detailed Cloud Billing export to BigQuery.
+  # See docs/gcp-billing-export-setup.md for how to enable it.
+  # - provider: gcp
+  #   id: "my-gcp-project-123"              # GCP project id
+  #   name: "Example GCP Client"
+  #   billing_account_id: "0123AB-4567CD-89EF01"
+  #   billing_export_dataset: "billing_export"   # BigQuery dataset holding the export
+  #   # billing_export_table: ""            # optional; defaults to gcp_billing_export_resource_v1_<ACCT>
+  #   # billing_export_project: ""          # optional; defaults to the project id above
+  #   tags:
+  #     environment: production
+  #     client: example-client
 
 required_tags:
   - environment

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from finops.analyzers.base import Analyzer
-from finops.models import AzureResource, ResourceCost, Finding, Severity
+from finops.models import CloudResource, ResourceCost, Finding, Severity
 
 
 class UntaggedAnalyzer(Analyzer):
@@ -11,7 +11,7 @@ class UntaggedAnalyzer(Analyzer):
     def analyze(
         self,
         subscription_id: str,
-        resources: list[AzureResource],
+        resources: list[CloudResource],
         costs: list[ResourceCost],
     ) -> list[Finding]:
         findings = []
@@ -32,5 +32,6 @@ class UntaggedAnalyzer(Analyzer):
                     "Agregue las etiquetas para una correcta asignación de costos."
                 ),
                 metadata={"missing_tags": missing},
+                provider=resource.provider,
             ))
         return findings

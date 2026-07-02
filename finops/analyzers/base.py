@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from finops.config import FinOpsConfig
-from finops.models import AzureResource, ResourceCost, Finding
+from finops.models import CloudResource, ResourceCost, Finding
 
 
 class Analyzer(ABC):
@@ -16,6 +16,6 @@ class Analyzer(ABC):
     def analyze(
         self,
         subscription_id: str,
-        resources: list[AzureResource],
+        resources: list[CloudResource],
         costs: list[ResourceCost],
     ) -> list[Finding]: ...

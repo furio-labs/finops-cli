@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field, asdict
 from typing import Any
-from finops.models import SubscriptionData, Finding, Severity, AzureResource, ResourceCost, Invoice, AiInsight
+from finops.models import SubscriptionData, Finding, Severity, CloudResource, ResourceCost, Invoice, AiInsight
 
 
 @dataclass
@@ -49,7 +49,7 @@ def report_to_json(report: Report) -> str:
 def _from_dict(data: dict) -> Report:
     subs = []
     for s in data["subscriptions"]:
-        resources = [AzureResource(**r) for r in s["resources"]]
+        resources = [CloudResource(**r) for r in s["resources"]]
         costs = [
             ResourceCost(
                 resource_id=c["resource_id"],
@@ -59,6 +59,7 @@ def _from_dict(data: dict) -> Report:
                 daily_costs=c["daily_costs"],
                 publisher_type=c.get("publisher_type", "Azure"),
                 service_name=c.get("service_name", ""),
+                provider=c.get("provider", "azure"),
             )
             for c in s["costs"]
         ]

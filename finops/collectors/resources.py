@@ -1,6 +1,6 @@
 from __future__ import annotations
 from azure.mgmt.resource.resources import ResourceManagementClient
-from finops.models import AzureResource
+from finops.models import CloudResource
 from finops.collectors.base import retry_on_throttle
 
 
@@ -17,13 +17,13 @@ class ResourceCollector:
     def __init__(self, credential) -> None:
         self._credential = credential
 
-    def collect(self, subscription_id: str) -> list[AzureResource]:
+    def collect(self, subscription_id: str) -> list[CloudResource]:
         client = ResourceManagementClient(self._credential, subscription_id)
         raw = retry_on_throttle(lambda: list(client.resources.list()))
         results = []
         for r in raw:
             rid = (r.id or "").lower()
-            results.append(AzureResource(
+            results.append(CloudResource(
                 id=rid,
                 name=r.name,
                 type=(r.type or "").lower(),

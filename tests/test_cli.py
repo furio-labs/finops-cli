@@ -53,16 +53,54 @@ def test_with_ai_warns_when_no_api_key(tmp_path, monkeypatch):
     config_file = tmp_path / "subscriptions.yaml"
     config_file.write_text(yaml.dump({"subscriptions": [{"id": "sub-abc", "name": "My Sub"}]}))
     runner = CliRunner()
+
+    def _empty_collector():
+        c = MagicMock()
+        c.collect.return_value = []
+        return c
+
     with patch("finops.cli.get_credential") as mock_cred, \
-         patch("finops.cli.ResourceCollector") as mock_res, \
-         patch("finops.cli.CostCollector") as mock_cost, \
-         patch("finops.cli.InvoiceCollector") as mock_inv:
-        mock_cred.return_value = (MagicMock(), MagicMock(value="AzureCLI"))
-        mock_res.return_value.collect.return_value = []
-        mock_cost.return_value.collect.return_value = []
-        mock_inv.return_value.collect.return_value = []
+         patch("finops.cli.get_collectors") as mock_get_collectors:
+        mock_cred.return_value = (MagicMock(), "AzureCLI")
+        mock_get_collectors.return_value = (
+            _empty_collector(), _empty_collector(), _empty_collector(),
+        )
         result = runner.invoke(cli, [
             "run", "--with-ai", "--config", str(config_file), "--output", str(tmp_path),
         ])
     assert result.exit_code == 0
     assert "ANTHROPIC_API_KEY" in result.output
+
+
+def test_run_mixed_providers_gcp_skip_does_not_affect_azure(tmp_path):
+    from finops.providers import ProviderUnavailableError
+    config_file = tmp_path / "subscriptions.yaml"
+    config_file.write_text(yaml.dump({"subscriptions": [
+        {"id": "azure-sub", "name": "Azure Client"},
+        {"provider": "gcp", "id": "gcp-proj", "name": "GCP Client",
+         "billing_account_id": "0123AB-4567CD-89EF01", "billing_export_dataset": "ds"},
+    ]}))
+
+    def _cred(entry):
+        return (MagicMock(), entry.provider)
+
+    def _collectors(entry, credential):
+        res, cost, inv = MagicMock(), MagicMock(), MagicMock()
+        if entry.provider == "gcp":
+            res.collect.side_effect = ProviderUnavailableError("Billing export table not found")
+        else:
+            res.collect.return_value = []
+            cost.collect.return_value = []
+            inv.collect.return_value = []
+        return (res, cost, inv)
+
+    runner = CliRunner()
+    with patch("finops.cli.get_credential", side_effect=_cred), \
+         patch("finops.cli.get_collectors", side_effect=_collectors):
+        result = runner.invoke(cli, ["run", "--config", str(config_file), "--output", str(tmp_path)])
+
+    assert result.exit_code == 0
+    # Azure entry processed successfully; GCP entry skipped but the run completes.
+    assert "Azure Client" in result.output
+    assert "GCP Client" in result.output
+    assert "Billing export table not found" in result.output
