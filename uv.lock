@@ -44,15 +44,6 @@ wheels = [
 ]
 
 [[package]]
-name = "azure-common"
-version = "1.1.28"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3e/71/f6f71a276e2e69264a97ad39ef850dca0a04fce67b12570730cb38d0ccac/azure-common-1.1.28.zip", hash = "sha256:4ac0cd3214e36b6a1b6a442686722a5d8cc449603aa833f3f0f40bda836704a3", size = 20914, upload-time = "2022-02-03T19:39:44.373Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/55/7f118b9c1b23ec15ca05d15a578d8207aa1706bc6f7c87218efffbbf875d/azure_common-1.1.28-py2.py3-none-any.whl", hash = "sha256:5c12d3dcf4ec20599ca6b0d3e09e86e146353d443e7fcc050c9a19c1f9df20ad", size = 14462, upload-time = "2022-02-03T19:39:42.417Z" },
-]
-
-[[package]]
 name = "azure-core"
 version = "1.41.0"
 source = { registry = "https://pypi.org/simple" }
@@ -109,16 +100,16 @@ wheels = [
 
 [[package]]
 name = "azure-mgmt-costmanagement"
-version = "4.0.1"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/0f/fca8cc1228c4d8acb7462b8cb7fb2bd68d7fa7dec3b13f1aaf6f612a9e89/azure-mgmt-costmanagement-4.0.1.zip", hash = "sha256:a95734102450b6f01aaa938d78c00285b90fc52b866caae17efb5521ae986db7", size = 194223, upload-time = "2023-07-19T07:53:35.036Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/2b/9a5502ab00fe239966177051fc031d8484e80cd14e077acd62dcbddb3b51/azure_mgmt_costmanagement-5.0.0.tar.gz", hash = "sha256:ca0a9c1394052b1ec07afc3826f0f3d84fe7419b65c7ebfe9ae9de4e3ab62696", size = 199072, upload-time = "2026-07-08T09:42:43.382Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/ff/bafa7f1f205922d871616f19bd8d3b49020d61286015b87c13379b26a8e7/azure_mgmt_costmanagement-4.0.1-py3-none-any.whl", hash = "sha256:23e77373427555e880ce938d468f87c6a8d66a5b237d7b2b0270bb192d61586f", size = 180916, upload-time = "2023-07-19T07:53:36.551Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/18/87471994cd2cd5972ea8c3fcb58c0544d65cf6f88639f971b757d7d1f44b/azure_mgmt_costmanagement-5.0.0-py3-none-any.whl", hash = "sha256:c4a6d25ebead9b68f8c05b3aed8630416acf9a9752e6c49c982bd4ca62400d69", size = 181428, upload-time = "2026-07-08T09:42:44.822Z" },
 ]
 
 [[package]]
@@ -472,7 +463,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.115.0" },
     { name = "azure-identity", specifier = ">=1.19.0" },
     { name = "azure-mgmt-billing", specifier = ">=6.0.0" },
-    { name = "azure-mgmt-costmanagement", specifier = ">=4.0.1" },
+    { name = "azure-mgmt-costmanagement", specifier = ">=5.0.0" },
     { name = "azure-mgmt-resource", specifier = ">=26.0.0,<27" },
     { name = "click", specifier = ">=8.1.8" },
     { name = "jinja2", specifier = ">=3.1.5" },
